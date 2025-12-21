@@ -57,6 +57,24 @@ docker compose logs -f
 
 ---
 
+## Ekran Görüntüleri 🖼️
+
+Aşağıda proje arayüzünden bazı görüntüler bulunmaktadır.
+
+<p align="center">
+  <img src="screenshots/login.png" alt="Login ekranı" width="240" />
+  &nbsp;&nbsp;
+  <img src="screenshots/dashboard.png" alt="Dashboard" width="320" />
+  &nbsp;&nbsp;
+  <img src="screenshots/users.png" alt="Kullanıcılar" width="240" />
+</p>
+
+<p align="center">
+  <img src="screenshots/banking-send-money.png" alt="Kart ile gönderme" width="320" />
+</p>
+
+---
+
 ## Faydalı ipuçları / Sorun giderme 💡
 
 - Eğer port çakışması varsa, ilgili portu kullanan başka servisleri durdurun veya `docker-compose.yml` içinden port atamasını değiştirin.
@@ -71,5 +89,3 @@ docker compose logs -f
 - Yeni özellik eklemeleri veya hata düzeltmeleri için lütfen proje dokümantasyonuna göz atın ve commit mesajlarını açıklayıcı yazın.
 
 ---
-
-Herhangi bir değişiklik isterseniz, README'yi projenin ihtiyaçlarına göre genişletebilirim.
