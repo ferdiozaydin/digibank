@@ -1,0 +1,224 @@
+{% extends "layout.html" %} {% block content %}
+<div class="hero-section">
+  <h1>Performans ve İzleme</h1>
+  <p>API gecikmesi, ödeme başarı oranı ve altyapı sağlığı tek ekranda.</p>
+</div>
+
+<div class="grid metrics-grid">
+  <div class="card kpi-card">
+    <div class="card-top">
+      <h3>API Gecikmesi</h3>
+      <span class="pill {{ 'live' if metrics_live else '' }}"
+        >{{ 'Canlı' if metrics_live else 'Demo' }}</span
+      >
+    </div>
+    <div class="kpi-value">{{ metrics.apiLatencyMs }} ms</div>
+    <p class="text-muted">Hedef &lt; 150 ms</p>
+  </div>
+
+  <div class="card kpi-card">
+    <div class="card-top">
+      <h3>Ödeme Başarı</h3>
+      <span class="pill {{ 'live' if metrics_live else '' }}"
+        >{{ 'Canlı' if metrics_live else 'Demo' }}</span
+      >
+    </div>
+    <div class="kpi-value">{{ metrics.paymentSuccessRate }}%</div>
+    <p class="text-muted">Son 1 saat</p>
+  </div>
+
+  <div class="card kpi-card">
+    <div class="card-top">
+      <h3>Sensör Uyarıları</h3>
+      <span class="pill warning">Anlık</span>
+    </div>
+    <div class="kpi-value">{{ metrics.sensorAlertsActive }}</div>
+    <p class="text-muted">Aktif saha alarmı</p>
+  </div>
+
+  <div class="card kpi-card">
+    <div class="card-top">
+      <h3>Kripto Kullanımı</h3>
+      <span class="pill ghost">Öngörü</span>
+    </div>
+    <div class="kpi-value">{{ metrics.cryptoUsagePct }}%</div>
+    <p class="text-muted">Toplam işlemlerde pay</p>
+  </div>
+</div>
+
+<div class="chart-grid">
+  <div class="card chart-card">
+    <div class="card-top">
+      <h3>Gecikme ve Throughput</h3>
+      <span class="pill">Dakikalık</span>
+    </div>
+    <canvas id="latencyChart" height="110"></canvas>
+  </div>
+
+  <div class="card chart-card">
+    <div class="card-top">
+      <h3>Başarı / Hata Oranı</h3>
+      <span class="pill">Son ölçümler</span>
+    </div>
+    <canvas id="successChart" height="110"></canvas>
+  </div>
+</div>
+
+<div class="grid" style="margin-top: 20px">
+  <div class="card">
+    <div class="card-top">
+      <h3>Servis Sağlığı</h3>
+      <span class="pill">Anlık fotoğraf</span>
+    </div>
+    <div class="status-list">
+      <div class="status-item">
+        <span class="status-dot ok"></span>
+        <div>
+          <strong>API Gateway</strong>
+          <div class="text-muted">
+            401/40x p95 gecikme {{ metrics.apiLatencyMs }} ms
+          </div>
+        </div>
+        <span class="status-pill ok">Sağlıklı</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot ok"></span>
+        <div>
+          <strong>Ödeme Motoru</strong>
+          <div class="text-muted">Başarı {{ metrics.paymentSuccessRate }}%</div>
+        </div>
+        <span class="status-pill ok">Açık</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot warn"></span>
+        <div>
+          <strong>IoT Sensörler</strong>
+          <div class="text-muted">
+            {{ metrics.sensorAlertsActive }} aktif uyarı
+          </div>
+        </div>
+        <span class="status-pill warn">İzleniyor</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot ok"></span>
+        <div>
+          <strong>Kripto Köprü</strong>
+          <div class="text-muted">Kullanım {{ metrics.cryptoUsagePct }}%</div>
+        </div>
+        <span class="status-pill ok">Çalışıyor</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <h3>Son Ölçüm Notları</h3>
+      <span class="pill {{ 'live' if metrics_live else '' }}"
+        >{{ 'Canlı' if metrics_live else 'Demo' }}</span
+      >
+    </div>
+    <ul class="notes-list">
+      <li>API p95 gecikme {{ metrics.apiLatencyMs }} ms seviyesinde stabil.</li>
+      <li>
+        Ödeme başarı oranı {{ metrics.paymentSuccessRate }}% ve hata oranı {{
+        (100 - metrics.paymentSuccessRate)|round(2) }}%.
+      </li>
+      <li>
+        {{ metrics.sensorAlertsActive }} sensör uyarısı için saha ekipleri
+        yönlendirildi.
+      </li>
+      <li>
+        Kripto kullanım oranı {{ metrics.cryptoUsagePct }}% ile hedef aralıkta.
+      </li>
+    </ul>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const timeline = {{ timeline | tojson }};
+  const labels = timeline.map((p) => p.label);
+  const latency = timeline.map((p) => p.latency);
+  const throughput = timeline.map((p) => p.throughput);
+  const success = timeline.map((p) => p.success);
+  const failure = success.map((s) => Math.max(0, 100 - s));
+
+  const baseGrid = {
+    color: "rgba(148, 163, 184, 0.25)",
+    borderDash: [4, 4],
+  };
+
+  const axisTicks = {
+    color: "#94a3b8",
+    font: { family: "Inter", size: 11 },
+  };
+
+  new Chart(document.getElementById("latencyChart"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Gecikme (ms)",
+          data: latency,
+          borderColor: "#3b82f6",
+          backgroundColor: "rgba(59, 130, 246, 0.25)",
+          tension: 0.3,
+          fill: true,
+        },
+        {
+          label: "Throughput (txn/dk)",
+          data: throughput,
+          borderColor: "#10b981",
+          backgroundColor: "rgba(16, 185, 129, 0.15)",
+          tension: 0.3,
+          yAxisID: "y1",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: "#e2e8f0" } } },
+      scales: {
+        x: { ticks: axisTicks, grid: baseGrid },
+        y: { ticks: axisTicks, grid: baseGrid, title: { display: true, text: "ms", color: "#94a3b8" } },
+        y1: {
+          position: "right",
+          ticks: axisTicks,
+          grid: { drawOnChartArea: false },
+          title: { display: true, text: "txn/dk", color: "#94a3b8" },
+        },
+      },
+    },
+  });
+
+  new Chart(document.getElementById("successChart"), {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Başarı (%)",
+          data: success,
+          backgroundColor: "#10b981",
+          borderRadius: 6,
+        },
+        {
+          label: "Hata (%)",
+          data: failure,
+          backgroundColor: "#ef4444",
+          borderRadius: 6,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: "#e2e8f0" } } },
+      scales: {
+        x: { stacked: true, ticks: axisTicks, grid: baseGrid },
+        y: { stacked: true, ticks: axisTicks, grid: baseGrid, max: 100 },
+      },
+    },
+  });
+</script>
+{% endblock %}

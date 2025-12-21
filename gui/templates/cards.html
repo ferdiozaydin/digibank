@@ -1,0 +1,84 @@
+{% extends "layout.html" %} {% block content %}
+<div class="hero-section">
+  <h1>Kartlar</h1>
+  <p>Limitlerini izle, güvenlik ayarlarını yönet, hızlı işlemler oluştur.</p>
+</div>
+
+<div class="grid">
+  {% for card in cards %}
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="pill">{{ card.brand }}</div>
+        <h3 style="margin: 8px 0 4px">{{ card.name }}</h3>
+        <div class="text-muted">{{ card.id }}</div>
+      </div>
+      <div class="status">{{ card.status }}</div>
+    </div>
+    <div class="card-metrics">
+      <div>
+        <div class="label">Limit</div>
+        <div class="value">₺{{ "{:,.0f}".format(card.limit) }}</div>
+      </div>
+      <div>
+        <div class="label">Kalan</div>
+        <div class="value">₺{{ "{:,.0f}".format(card.available) }}</div>
+      </div>
+      <div>
+        <div class="label">Son İşlem</div>
+        <div class="value">{{ card.lastTx }}</div>
+      </div>
+    </div>
+    <form method="POST" action="{{ url_for('cards') }}" class="quick-actions">
+      <input type="hidden" name="cardId" value="{{ card.id }}" />
+      <button class="btn ghost" name="action" value="Kartı Dondur">
+        Kartı Dondur
+      </button>
+      <button class="btn ghost" name="action" value="Limiti Artır">
+        Limiti Artır
+      </button>
+      <button class="btn ghost" name="action" value="Yeni Sanal Kart">
+        Yeni Sanal Kart
+      </button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="grid" style="margin-top: 24px">
+  <div class="card">
+    <div class="card-top">
+      <h3>Kart Hareketleri (Fake)</h3>
+      <div class="pill">Demo</div>
+    </div>
+    {% for t in tx %}
+    <div class="transaction-item">
+      <div class="tx-desc">
+        <strong>{{ t.desc }}</strong>
+        <div style="font-size: 0.85rem; color: #94a3b8">{{ t.date }}</div>
+      </div>
+      <div class="tx-amount {{ 'negative' if t.amount < 0 else 'positive' }}">
+        {{ "{:,.2f}".format(t.amount) }}₺
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="card">
+    <div class="card-top">
+      <h3>Son Kart Talepleri</h3>
+      <div class="pill">Simülasyon</div>
+    </div>
+    {% if events %} {% for e in events %}
+    <div class="transaction-item">
+      <div class="tx-desc">
+        <strong>{{ e.cardId }}</strong>
+        <div class="text-muted">{{ e.ts }}</div>
+      </div>
+      <div class="tx-amount">{{ e.action }}</div>
+    </div>
+    {% endfor %} {% else %}
+    <p style="color: #94a3b8">Henüz oluşturulmuş talep yok.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

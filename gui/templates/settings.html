@@ -1,0 +1,105 @@
+{% extends "layout.html" %} {% block content %}
+<div class="hero-section">
+  <h1>Ayarlar</h1>
+  <p>Güvenlik, bildirim ve görünüm tercihlerini yönet.</p>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="card-top">
+      <h3>Güvenlik & Bildirimler</h3>
+      <div class="pill">Simülasyon</div>
+    </div>
+    <form
+      method="POST"
+      action="{{ url_for('settings') }}"
+      class="settings-form"
+    >
+      <label class="toggle">
+        <input
+          type="checkbox"
+          name="biometric"
+          {%
+          if
+          preferences.biometric
+          %}checked{%
+          endif
+          %}
+        />
+        <span>Biometrik giriş</span>
+      </label>
+      <label class="toggle">
+        <input
+          type="checkbox"
+          name="push"
+          {%
+          if
+          preferences.push
+          %}checked{%
+          endif
+          %}
+        />
+        <span>Push bildirimleri</span>
+      </label>
+      <label class="toggle">
+        <input
+          type="checkbox"
+          name="spendAlerts"
+          {%
+          if
+          preferences.spendAlerts
+          %}checked{%
+          endif
+          %}
+        />
+        <span>Harcama uyarıları</span>
+      </label>
+      <label class="toggle">
+        <input
+          type="checkbox"
+          name="travelMode"
+          {%
+          if
+          preferences.travelMode
+          %}checked{%
+          endif
+          %}
+        />
+        <span>Seyahat modu</span>
+      </label>
+      <label class="toggle">
+        <input
+          type="checkbox"
+          name="darkMode"
+          {%
+          if
+          preferences.darkMode
+          %}checked{%
+          endif
+          %}
+        />
+        <span>Koyu tema</span>
+      </label>
+      <button type="submit" class="btn" style="margin-top: 14px">Kaydet</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <h3>Son Yapılan Ayarlar</h3>
+      <div class="pill">Demo</div>
+    </div>
+    {% if logs %} {% for item in logs %}
+    <div class="transaction-item">
+      <div class="tx-desc">
+        <strong>{{ item.ts }}</strong>
+        <div class="text-muted">{{ item.note }}</div>
+      </div>
+      <div class="tx-amount">✅</div>
+    </div>
+    {% endfor %} {% else %}
+    <p style="color: #94a3b8">Henüz bir değişiklik yapılmadı.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:14
+    container_name: digibank-db
+    restart: always
+    environment:
+      - POSTGRES_DB=digibank
+      - POSTGRES_USER=digibank
+      - POSTGRES_PASSWORD=digibank
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend-java:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: digibank-backend
+    ports:
+      - "8080:8080"
+    restart: always
+    volumes:
+      - ./txt:/app/txt
+    depends_on:
+      - db
+    environment:
+      - DB_URL=jdbc:postgresql://db:5432/digibank
+      - DB_USER=digibank
+      - DB_PASS=digibank
+
+  frontend-gui:
+    build:
+      context: ./gui
+      dockerfile: Dockerfile
+    container_name: digibank-gui
+    ports:
+      - "8000:8000"
+    depends_on:
+      - backend-java
+    environment:
+      - BACKEND_URL=http://backend-java:8080
+    restart: always
+
+volumes:
+  pgdata:

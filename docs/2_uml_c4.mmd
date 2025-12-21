@@ -1,0 +1,69 @@
+---
+config:
+ theme: neutral
+---
+
+C4Container
+    title DigiBank + Smart City - Container Diagram (Kod ile uyumlu)
+
+    Person(resident, "Resident", "Şehir sakini; web/mobil istemci ile erişir.")
+    Person(admin, "System Admin", "Kullanıcı ve yetki yönetir; iç denetimi yürütür.")
+
+    Person_Ext(psa, "Public Safety Authority", "Acil durum uyarılarını alır.")
+    Person_Ext(utility, "Public Utility Service", "Su/elektrik gibi altyapı uyarılarını alır.")
+
+System_Boundary(smartcity, "Smart City & DigiBank Platform (Java prototype)") {
+
+  Container(webApp, "Resident Web/Mobile UI", "Web / Mobile", "Fatura görüntüleme, ödeme, ev otomasyonu.")
+  Container(adminPortal, "Admin Console", "Web Application", "Kullanıcı kayıt, metrik, dışa aktarma.")
+
+  Container(apiServer, "ApiServer", "Java HttpServer", "REST uçları: login, fatura, ödeme, metrik, ev kontrolü.")
+  Container(authService, "AuthenticationService", "Service", "SHA3-512 + salt, TOTP MFA, geçici kilitleme.")
+  Container(userRepo, "UserRepository", "In-memory store", "Kullanıcı ve rol bilgisi; txt dışa aktarma.")
+
+  Container(paymentService, "PaymentService", "Service", "Strategy + Adapter ile fiat/kripto ödemeleri kaydeder.")
+  Container(txRepo, "TransactionRepository", "In-memory store", "İşlem loglarını tutar (AuditLogger ile birlikte).")
+  Container(govService, "SmartGovernmentService", "Service", "Fatura listeler; fiat veya kripto ödeme çağırır.")
+  Container(cryptoAdapters, "CryptoAdapters", "BTC/ETH/Stable", "BtcAdapter/EthAdapter/StablecoinAdapter ile blokzincir simülasyonu.")
+
+  Container(sensorSystem, "SensorSystem", "Observer", "Olayları BankingNotification/Emergency/Utility servislerine yayınlar.")
+  Container(commandInvoker, "CommandInvoker", "Command queue", "Trafik/ışık ve ev cihazı komutlarını sırayla çalıştırır.")
+  Container(cityController, "CityController", "Service", "Günlük rutinleri, sensör tetiklerini ve komut kuyruğunu yürütür.")
+  Container(infrastructure, "InfrastructureController", "Service", "Trafik ışığı ve sokak aydınlatmasını kontrol eder.")
+  Container(homeController, "HomeDeviceController", "Service", "Cihaz aç/kapat, termostat ayarı.")
+  Container(analyticsEngine, "PredictiveAnalyticsService", "Analytics", "Trafik/enerji tahmini ve metrik snapshot üretir.")
+
+  Container(logStore, "AuditLogger + txt export", "File output", "İşlem logları ve admin dışa aktarma dosyaları.")
+}
+
+System_Ext(iotSensors, "IoT Sensors & Cameras", "Olay üreten sensörler (simülasyon).")
+
+Rel(resident, webApp, "Kullanır", "HTTPS")
+Rel(admin, adminPortal, "Yönetim için kullanır", "HTTPS")
+
+Rel(webApp, apiServer, "REST çağrıları", "HTTPS")
+Rel(adminPortal, apiServer, "Yönetim API çağrıları", "HTTPS")
+
+Rel(apiServer, authService, "Giriş/MFA doğrulama", "HTTPS")
+Rel(apiServer, userRepo, "Kayıt/Güncelle/Fetch", "In-memory")
+Rel(apiServer, paymentService, "Ödeme tetikler", "HTTPS")
+Rel(apiServer, govService, "Fatura sorgular", "HTTPS")
+Rel(apiServer, analyticsEngine, "Metrik/Tahmin", "HTTPS")
+Rel(apiServer, homeController, "Ev cihazı/termostat", "HTTPS")
+Rel(apiServer, logStore, "TXT dışa aktarma yazar", "File")
+
+Rel(paymentService, txRepo, "İşlem kaydı", "In-memory")
+Rel(paymentService, logStore, "Audit log", "File")
+Rel(govService, paymentService, "Fiat/kripto ödeme çağırır", "In-process")
+Rel(paymentService, cryptoAdapters, "Kripto ödemesi için Adapter", "In-process")
+
+Rel(cityController, sensorSystem, "Olay dinler / tetikler", "In-process")
+Rel(sensorSystem, psa, "Acil durum bildirir", "Notify")
+Rel(sensorSystem, utility, "Altyapı arıza bildirir", "Notify")
+Rel(sensorSystem, resident, "Bölgesel uyarı gönderir", "Notify")
+Rel(cityController, commandInvoker, "Komut kuyruğunu çalıştırır", "In-process")
+Rel(commandInvoker, infrastructure, "Trafik/ışık komutu", "In-process")
+Rel(commandInvoker, homeController, "Ev cihaz komutu", "In-process")
+
+Rel(analyticsEngine, cityController, "Tahmin verisi sağlar", "In-process")
+Rel(iotSensors, sensorSystem, "Olay tetikler", "Simulated feed")

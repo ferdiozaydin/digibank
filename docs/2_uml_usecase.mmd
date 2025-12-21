@@ -1,0 +1,56 @@
+---
+config:
+ theme: neutral
+---
+
+flowchart LR
+
+subgraph Actors
+Resident([Resident])
+Admin([System Admin])
+CityOps([CityController Service])
+PSA([Public Safety Authority])
+Utility([Public Utility Service])
+HomeDevices([Home Device Endpoints])
+end
+
+subgraph DigiBankSmartCitySystem["Smart City + DigiBank (Java Prototype)"]
+UC_Login((Login + TOTP MFA))
+UC_Register((Admin Registers User))
+UC_FetchBills((Fetch Gov Bills))
+UC_PayFiat((Pay Bill - Fiat))
+UC_PayCrypto((Pay Bill - Crypto Adapter))
+UC_Export((Export Users to txt))
+UC_Metrics((View Metrics Snapshot))
+UC_Forecast((View Traffic/Energy Forecast))
+UC_ToggleDevice((Toggle Home Device))
+UC_SetThermostat((Set Thermostat))
+UC_RunRoutines((Run Daily Routines))
+UC_ProcessSensor((Process Sensor Events))
+UC_NotifyObservers((Notify Observers))
+end
+
+Resident --> UC_Login
+Resident --> UC_FetchBills
+Resident --> UC_PayFiat
+Resident --> UC_PayCrypto
+Resident --> UC_ToggleDevice
+Resident --> UC_SetThermostat
+
+Admin --> UC_Login
+Admin --> UC_Register
+Admin --> UC_Export
+Admin --> UC_Metrics
+Admin --> UC_Forecast
+
+CityOps --> UC_RunRoutines
+CityOps --> UC_ProcessSensor
+CityOps --> UC_NotifyObservers
+
+PSA --> UC_NotifyObservers
+Utility --> UC_NotifyObservers
+
+UC_ProcessSensor --> UC_NotifyObservers
+UC_RunRoutines --> UC_ProcessSensor
+HomeDevices --> UC_ToggleDevice
+HomeDevices --> UC_SetThermostat

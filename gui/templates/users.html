@@ -1,0 +1,87 @@
+{% extends "layout.html" %} {% block content %}
+<div class="hero-section">
+  <h1>Kullanıcı Yönetimi</h1>
+  <p>Sisteme kayıtlı kullanıcılar ve hızlı ekleme.</p>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="card-top">
+      <h3>Yeni Kullanıcı Ekle</h3>
+      <span class="pill">Admin yetkisi gerekir</span>
+    </div>
+    <form method="post" class="auth-form" style="margin-top: 12px">
+      <label for="username">Kullanıcı adı</label>
+      <input
+        class="input"
+        type="text"
+        id="username"
+        name="username"
+        placeholder="ornek.kullanici"
+        required
+      />
+
+      <label for="password">Şifre</label>
+      <input
+        class="input"
+        type="password"
+        id="password"
+        name="password"
+        placeholder="Güçlü bir şifre"
+        required
+      />
+
+      <label for="role">Rol</label>
+      <select class="input" id="role" name="role">
+        <option value="RESIDENT">RESIDENT</option>
+        <option value="ADMIN">ADMIN</option>
+      </select>
+
+      <button type="submit" class="btn" style="margin-top: 10px">Kaydet</button>
+      <p class="text-muted" style="margin: 6px 0 0">
+        TOTP için 000000 demo kodu geçerlidir.
+      </p>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <h3>Kullanıcı Listesi</h3>
+      <span class="pill">DB veya cache</span>
+    </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Kullanıcı</th>
+            <th>Rol</th>
+            <th>TL Bakiye</th>
+            <th>Kripto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>{{ u.id }}</td>
+            <td>{{ u.username }}</td>
+            <td>{{ u.role }}</td>
+            <td>{{ u.fiatBalance }}</td>
+            <td>{{ u.cryptoBalance }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td
+              colspan="5"
+              style="text-align: center; color: var(--text-muted)"
+            >
+              Kayıt bulunamadı
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

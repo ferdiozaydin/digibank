@@ -1,0 +1,67 @@
+{% extends "layout.html" %} {% block content %}
+<div class="auth-wrapper">
+  <div
+    class="card"
+    style="max-width: 420px; margin: 60px auto; text-align: center"
+  >
+    <h1 style="margin-bottom: 10px">DigiBank'e Giriş</h1>
+    <p style="color: #94a3b8; margin-bottom: 20px">
+      Lütfen hesap bilgilerinizi girin.
+    </p>
+    <form
+      method="POST"
+      action="{{ url_for('login', next=request.args.get('next')) }}"
+      class="auth-form"
+    >
+      <label for="username">Kullanıcı Adı</label>
+      <input
+        type="text"
+        id="username"
+        name="username"
+        placeholder="{{ default_username }}"
+        required
+        style="
+          width: 100%;
+          padding: 10px;
+          border-radius: 6px;
+          border: 1px solid #e2e8f0;
+        "
+      />
+      <label for="password" style="margin-top: 12px">Şifre</label>
+      <input
+        type="password"
+        id="password"
+        name="password"
+        placeholder="{{ default_password }}"
+        required
+        style="
+          width: 100%;
+          padding: 10px;
+          border-radius: 6px;
+          border: 1px solid #e2e8f0;
+        "
+      />
+      <label for="totp" style="margin-top: 12px">TOTP Kodu</label>
+      <input
+        type="text"
+        id="totp"
+        name="totp"
+        placeholder="{{ default_totp }}"
+        required
+        style="
+          width: 100%;
+          padding: 10px;
+          border-radius: 6px;
+          border: 1px solid #e2e8f0;
+        "
+      />
+      <p style="color: #64748b; font-size: 13px; margin: 6px 0 0 0">
+        Authenticator uygulamasındaki 6 haneli TOTP kodunu girin.
+      </p>
+      <button type="submit" class="btn" style="width: 100%; margin-top: 16px">
+        Giriş Yap
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

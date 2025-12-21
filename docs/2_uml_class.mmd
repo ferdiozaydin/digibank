@@ -1,0 +1,245 @@
+---
+config:
+ theme: neutral
+---
+
+classDiagram
+
+class User {
+  +id: Long
+  +username: String
+  +salt: String
+  +passwordHash: String
+  +totpSecret: String
+  +pqPublicKey: String
+  +role: String
+  +fiatBalance: BigDecimal
+  +cryptoBalance: BigDecimal
+  +hasRole(expectedRole)
+}
+
+class Transaction {
+  +id: Long
+  +userId: Long
+  +description: String
+  +amount: BigDecimal
+  +timestamp: LocalDateTime
+  +status: String
+}
+
+class TransactionRepository {
+  +save(tx: Transaction)
+}
+
+class PaymentStrategy {
+  <<interface>>
+  +pay(user: User, amount: BigDecimal): boolean
+}
+
+class FiatPaymentStrategy {
+  +pay(user: User, amount: BigDecimal): boolean
+}
+
+class CryptoPaymentStrategy {
+  +EXCHANGE_RATE: BigDecimal
+  +pay(user: User, amount: BigDecimal): boolean
+}
+
+class CryptoAdapter {
+  <<interface>>
+  +pay(user: User, amountFiat: BigDecimal): boolean
+  +name(): String
+}
+
+class BtcAdapter {
+  +pay(user: User, amountFiat: BigDecimal): boolean
+  +name(): String
+}
+
+class EthAdapter {
+  +pay(user: User, amountFiat: BigDecimal): boolean
+  +name(): String
+}
+
+class StablecoinAdapter {
+  +pay(user: User, amountFiat: BigDecimal): boolean
+  +name(): String
+}
+
+class PaymentService {
+  -repository: TransactionRepository
+  +processPayment(user: User, amount: BigDecimal, strategy: PaymentStrategy): boolean
+  +processCryptoPayment(user: User, amountFiat: BigDecimal, adapter: CryptoAdapter): boolean
+}
+
+class AuthenticationService {
+  +provisionCredentials(user: User, plainPassword: String, totpSecret: String, role: String)
+  +login(user: User, password: String, totpCode: String): boolean
+  +verifyPassword(password: String, salt: String, expectedHash: String): boolean
+}
+
+class SmartGovernmentService {
+  -paymentService: PaymentService
+  +fetchBills(citizenId: String): List~GovernmentBill~
+  +payBill(user: User, bill: GovernmentBill): boolean
+  +payBillWithCrypto(user: User, bill: GovernmentBill, adapter: CryptoAdapter): boolean
+}
+
+class GovernmentBill {
+  +billingId: String
+  +title: String
+  +amount: BigDecimal
+  +dueDate: String
+  +paid: boolean
+}
+
+class SensorSystem {
+  -observers: List~Observer~
+  +addObserver(o: Observer)
+  +removeObserver(o: Observer)
+  +triggerEvent(eventType: String, location: String)
+}
+
+class Observer {
+  <<interface>>
+  +update(eventType: String, location: String)
+}
+
+class BankingNotificationService {
+  +update(eventType: String, location: String)
+}
+
+class EmergencyService {
+  +update(eventType: String, location: String)
+}
+
+class PublicUtilityService {
+  +update(eventType: String, location: String)
+}
+
+class EmailNotificationObserver {
+  +update(eventType: String, location: String)
+}
+
+class Command {
+  <<interface>>
+  +execute()
+}
+
+class CommandInvoker {
+  +submit(cmd: Command)
+  +runAll()
+}
+
+class TurnOnStreetLightCommand {
+  -controller: InfrastructureController
+  -location: String
+  +execute()
+}
+
+class AdjustTrafficSignalCommand {
+  -controller: InfrastructureController
+  -intersection: String
+  -mode: String
+  +execute()
+}
+
+class ToggleHomeDeviceCommand {
+  -controller: HomeDeviceController
+  -deviceId: String
+  -on: boolean
+  +execute()
+}
+
+class DailyRoutineTemplate {
+  +runRoutine()
+  #checkPreConditions()
+  #executeCoreActions()
+  #checkPostConditions()
+}
+
+class LightingRoutine {
+  #checkPreConditions()
+  #executeCoreActions()
+  #checkPostConditions()
+}
+
+class SecuritySweepRoutine {
+  #checkPreConditions()
+  #executeCoreActions()
+  #checkPostConditions()
+}
+
+class CityController {
+  -sensorSystem: SensorSystem
+  -commandInvoker: CommandInvoker
+  -infrastructureController: InfrastructureController
+  -homeDeviceController: HomeDeviceController
+  +simulateCityEvents()
+  +runDailyRoutines()
+  +executeQueuedCommands()
+  +demoHomeAutomation()
+}
+
+class InfrastructureController {
+  +adjustTrafficSignal(intersection: String, mode: String)
+  +turnOnStreetLight(location: String)
+  +turnOffStreetLight(location: String)
+}
+
+class HomeDeviceController {
+  +toggleDevice(deviceId: String, on: boolean)
+  +setThermostat(zone: String, target: double)
+}
+
+class ApiServer {
+  +start(port: int)
+  +requireAuth(exchange): User
+  +handlers: login/bills/pay/export/metrics/forecast/home
+}
+
+class UserRepository {
+  +findByUsername(username: String): User
+  +findAll(): List~User~
+  +upsert(user: User)
+}
+
+User --> TransactionRepository : kullanılır
+PaymentService --> TransactionRepository : kayıt yazar
+PaymentService --> PaymentStrategy
+PaymentService --> CryptoAdapter
+PaymentStrategy <|.. FiatPaymentStrategy
+PaymentStrategy <|.. CryptoPaymentStrategy
+CryptoAdapter <|.. BtcAdapter
+CryptoAdapter <|.. EthAdapter
+CryptoAdapter <|.. StablecoinAdapter
+SmartGovernmentService --> PaymentService
+SmartGovernmentService --> GovernmentBill
+AuthenticationService --> User : kimlik bilgisi hazırlar
+ApiServer --> AuthenticationService
+ApiServer --> PaymentService
+ApiServer --> SmartGovernmentService
+ApiServer --> UserRepository
+ApiServer --> HomeDeviceController
+ApiServer --> PredictiveAnalyticsService
+UserRepository --> User
+TransactionRepository --> Transaction
+
+SensorSystem --> Observer
+Observer <|.. BankingNotificationService
+Observer <|.. EmergencyService
+Observer <|.. PublicUtilityService
+Observer <|.. EmailNotificationObserver
+
+CommandInvoker --> Command
+Command <|.. TurnOnStreetLightCommand
+Command <|.. AdjustTrafficSignalCommand
+Command <|.. ToggleHomeDeviceCommand
+
+DailyRoutineTemplate <|-- LightingRoutine
+DailyRoutineTemplate <|-- SecuritySweepRoutine
+
+CityController --> SensorSystem
+CityController --> CommandInvoker
+CityController --> InfrastructureController
+CityController --> HomeDeviceController

@@ -1,0 +1,71 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="hero-section">
+  <h1>Döviz / Swap</h1>
+  <p>Güncel kurlarla demo dönüşüm hesaplayın.</p>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>Swap Hesapla</h3>
+    <form method="POST" style="display: grid; gap: 12px; margin-top: 10px">
+      <div>
+        <label for="fromCurrency">Gönderilecek Para Birimi</label>
+        <select id="fromCurrency" name="fromCurrency" class="input">
+          {% for code in rates.keys() %}
+          <option value="{{ code }}">{{ code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="toCurrency">Alınacak Para Birimi</label>
+        <select id="toCurrency" name="toCurrency" class="input">
+          {% for code in rates.keys() %}
+          <option value="{{ code }}" {% if code == 'TRY' %}selected{% endif %}>
+            {{ code }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="amount">Tutar</label>
+        <input id="amount" name="amount" type="number" min="0" step="0.01" class="input" placeholder="1000" required />
+      </div>
+      <button class="btn" type="submit">Dönüştür</button>
+    </form>
+
+    {% if swap_result %}
+    <div class="card" style="margin-top: 16px; background: #0f172a">
+      <h4 style="margin-bottom: 8px">Özet</h4>
+      <div class="transaction-item">
+        <div class="tx-desc">
+          <strong>{{ swap_result.amount }} {{ swap_result.src }}</strong>
+          <div class="text-muted">Kur: {{ swap_result.rate }}</div>
+        </div>
+        <div class="tx-amount positive">{{ swap_result.converted }} {{ swap_result.dst }}</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <h3>Anlık Demo Kurlar</h3>
+      <div class="pill">Statik</div>
+    </div>
+    {% for base, targets in rates.items() %}
+    <div class="transaction-item">
+      <div class="tx-desc">
+        <strong>{{ base }} paritesi</strong>
+        <div class="text-muted">{{ targets|length }} hedef</div>
+      </div>
+      <div class="tx-amount">
+        {% for k, v in targets.items() %}
+        <span class="pill" style="margin-left: 4px">1 {{ base }} = {{ v }} {{ k }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

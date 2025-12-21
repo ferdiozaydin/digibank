@@ -1,0 +1,118 @@
+{% extends "layout.html" %} {% block content %}
+<div class="hero-section">
+  <h1>Akıllı Devlet Servisleri</h1>
+  <p>E-Devlet ve Vergi Ödeme Entegrasyonu</p>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>Aktif Entegrasyonlar</h3>
+    <div style="margin-top: 15px; display: flex; gap: 15px">
+      <span
+        style="
+          background: rgba(16, 185, 129, 0.2);
+          color: #10b981;
+          padding: 5px 10px;
+          border-radius: 4px;
+          font-size: 0.8rem;
+        "
+        >E-Devlet bağlı</span
+      >
+      <span
+        style="
+          background: rgba(16, 185, 129, 0.2);
+          color: #10b981;
+          padding: 5px 10px;
+          border-radius: 4px;
+          font-size: 0.8rem;
+        "
+        >Trafik sistem bağlı</span
+      >
+    </div>
+  </div>
+</div>
+
+<h2 style="margin-top: 40px">Bekleyen Devlet Faturaları</h2>
+<div class="grid">
+  {% for bill in bills %}
+  <div class="card">
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      "
+    >
+      <div>
+        <h3 style="color: var(--accent); margin-bottom: 5px">
+          {{ bill.type }}
+        </h3>
+        <code
+          style="
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 5px;
+            border-radius: 3px;
+          "
+          >{{ bill.billingId }}</code
+        >
+      </div>
+      <div style="text-align: right">
+        <div style="font-size: 1.5rem; font-weight: bold">
+          ₺{{ "{:,.2f}".format(bill.amount) }}
+        </div>
+        <div
+          style="font-size: 0.8rem; color: {{ 'var(--success)' if bill.isPaid else 'var(--error)' }}"
+        >
+          {{ 'ÖDEME TAMAM' if bill.isPaid else 'ÖDEME BEKLİYOR' }}
+        </div>
+      </div>
+    </div>
+
+    {% if not bill.isPaid %}
+    <form
+      action="{{ url_for('pay_bill', bill_id=bill.billingId) }}"
+      method="POST"
+      style="margin-top: 20px"
+    >
+      <label for="payMode" style="font-size: 0.9rem; color: #94a3b8"
+        >Ödeme Türü</label
+      >
+      <select
+        name="payMode"
+        style="
+          width: 100%;
+          padding: 8px;
+          margin: 6px 0 12px 0;
+          border-radius: 6px;
+          border: 1px solid #1f2937;
+          background: #0f172a;
+          color: #e2e8f0;
+        "
+      >
+        <option value="FIAT">TL</option>
+        <option value="BTC">BTC</option>
+        <option value="ETH">ETH</option>
+        <option value="STABLE">Stablecoin</option>
+      </select>
+      <button type="submit" class="btn btn-pay">DigiBank ile Öde</button>
+    </form>
+    {% else %}
+    <button
+      class="btn btn-pay"
+      disabled
+      style="background: #334155; cursor: not-allowed"
+    >
+      Ödeme Tamamlandı
+    </button>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <!-- Empty State if no bills -->
+  {% if not bills %}
+  <div class="card">
+    <p>Bekleyen faturaya rastlanmadı. Tüm borçlar güncel.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

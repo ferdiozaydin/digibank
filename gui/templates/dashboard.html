@@ -1,0 +1,126 @@
+{% extends "layout.html" %} {% block content %}
+<div class="hero-section">
+  <h1>Hoş geldin, {{ user.username }}</h1>
+  <p>Finansal özetin burada.</p>
+</div>
+
+<div class="grid">
+  <!-- Balance Card -->
+  <div class="card balance-card">
+    <h3>Toplam TL Bakiyesi</h3>
+    <div class="balance-amount">
+      ₺{{ "{:,.2f}".format(user.fiatBalance) if user.fiatBalance is defined else
+      '0.00' }}
+    </div>
+    <p class="trend">Bu ay +2.4%</p>
+  </div>
+
+  <!-- Crypto Card -->
+  <div class="card balance-card">
+    <h3>Kripto Varlıklar</h3>
+    <div class="balance-amount">
+      ₿{{ user.cryptoBalance if user.cryptoBalance is defined else '0' }}
+    </div>
+    <p class="trend">≈ $34,250.00 USD</p>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="card">
+    <h3>Hızlı İşlemler</h3>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px">
+      <a class="btn" href="{{ url_for('transfer') }}">Para Gönder</a>
+      <button class="btn" onclick="location.href='{{ url_for('smart_gov') }}'">
+        Fatura Öde
+      </button>
+      <a class="btn" href="{{ url_for('fx_swap') }}">Döviz/Swap</a>
+      <a class="btn" href="{{ url_for('home_control') }}">Akıllı Ev</a>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap">
+        <form
+          action="{{ url_for('export_data') }}"
+          method="post"
+          style="display: inline"
+        >
+          <button
+            type="submit"
+            class="btn"
+            style="background-color: var(--success)"
+          >
+            Sunucuya Aktar
+          </button>
+        </form>
+        <a
+          class="btn"
+          style="background-color: var(--secondary)"
+          href="{{ url_for('export_download') }}"
+        >
+          İndir (CSV)
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid" style="margin-top: 30px">
+  <div class="card">
+    <h3>Performans Göstergeleri</h3>
+    {% if not metrics_live %}
+    <div class="pill" style="margin-top: 6px">Demo verisi</div>
+    {% endif %}
+    <div
+      style="
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+      "
+    >
+      <div class="mini-metric">
+        <div class="label">API Latency</div>
+        <div class="value">
+          {{ metrics.apiLatencyMs if metrics else '—' }} ms
+        </div>
+      </div>
+      <div class="mini-metric">
+        <div class="label">Ödeme Başarı</div>
+        <div class="value">
+          {{ metrics.paymentSuccessRate if metrics else '—' }}%
+        </div>
+      </div>
+      <div class="mini-metric">
+        <div class="label">Sensör Uyarıları</div>
+        <div class="value">
+          {{ metrics.sensorAlertsActive if metrics else '—' }} aktif
+        </div>
+      </div>
+      <div class="mini-metric">
+        <div class="label">Kripto Kullanımı</div>
+        <div class="value">
+          {{ metrics.cryptoUsagePct if metrics else '—' }}%
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Son İşlemler</h3>
+    {% for tx in user.transactions %}
+    <div class="transaction-item">
+      <div class="tx-desc">
+        <strong>{{ tx.desc }}</strong>
+        <div style="font-size: 0.8rem; color: #94a3b8">{{ tx.date }}</div>
+      </div>
+      <div class="tx-amount {{ 'positive' if tx.amount > 0 else 'negative' }}">
+        {{ "{:,.2f}".format(tx.amount) }}
+      </div>
+    </div>
+    {% else %}
+    <div class="transaction-item">
+      <div class="tx-desc">
+        <strong>İşlem bulunmuyor</strong>
+        <div style="font-size: 0.8rem; color: #94a3b8">Güncel kayıt yok</div>
+      </div>
+      <div class="tx-amount">0.00</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

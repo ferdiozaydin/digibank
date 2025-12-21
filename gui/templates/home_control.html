@@ -1,0 +1,99 @@
+{% extends "layout.html" %} {% block content %}
+<div class="hero-section">
+  <h1>Akıllı Ev Kontrolü</h1>
+  <p>Cihazlarını aç/kapat, termostatı ayarla.</p>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>Cihaz Aç/Kapat</h3>
+    <form
+      action="{{ url_for('home_toggle') }}"
+      method="POST"
+      style="margin-top: 12px"
+    >
+      <label for="deviceId">Cihaz ID</label>
+      <input
+        type="text"
+        id="deviceId"
+        name="deviceId"
+        placeholder="LIGHT-LIVINGROOM"
+        required
+        style="
+          width: 100%;
+          padding: 10px;
+          border-radius: 6px;
+          border: 1px solid #1f2937;
+          background: #0f172a;
+          color: #e2e8f0;
+          margin-bottom: 10px;
+        "
+      />
+      <label for="state">Durum</label>
+      <select
+        id="state"
+        name="state"
+        style="
+          width: 100%;
+          padding: 10px;
+          border-radius: 6px;
+          border: 1px solid #1f2937;
+          background: #0f172a;
+          color: #e2e8f0;
+          margin-bottom: 14px;
+        "
+      >
+        <option value="on">Aç</option>
+        <option value="off">Kapat</option>
+      </select>
+      <button type="submit" class="btn">Güncelle</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Termostat Ayarı</h3>
+    <form
+      action="{{ url_for('home_thermostat') }}"
+      method="POST"
+      style="margin-top: 12px"
+    >
+      <label for="zone">Bölge</label>
+      <input
+        type="text"
+        id="zone"
+        name="zone"
+        placeholder="Salon"
+        required
+        style="
+          width: 100%;
+          padding: 10px;
+          border-radius: 6px;
+          border: 1px solid #1f2937;
+          background: #0f172a;
+          color: #e2e8f0;
+          margin-bottom: 10px;
+        "
+      />
+      <label for="target">Hedef Sıcaklık (°C)</label>
+      <input
+        type="number"
+        step="0.1"
+        id="target"
+        name="target"
+        placeholder="22.5"
+        required
+        style="
+          width: 100%;
+          padding: 10px;
+          border-radius: 6px;
+          border: 1px solid #1f2937;
+          background: #0f172a;
+          color: #e2e8f0;
+          margin-bottom: 14px;
+        "
+      />
+      <button type="submit" class="btn">Ayarla</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

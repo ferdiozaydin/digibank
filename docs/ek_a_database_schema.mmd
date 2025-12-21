@@ -1,0 +1,88 @@
+---
+config:
+  theme: neutral
+---
+erDiagram
+
+    %% Kullanıcı ve Kimlik Yönetimi
+    USERS {
+        bigint id PK
+        string username
+        string email
+        string password_hash
+        string phone_number
+        string role "Resident, Admin, CityOperator"
+        datetime created_at
+    }
+
+    ROLES {
+        int id PK
+        string name
+        string permissions
+    }
+
+    USERS ||--o{ ROLES : "has"
+
+    %% Bankacılık Modülü
+    ACCOUNTS {
+        bigint id PK
+        bigint user_id FK
+        string account_type "FIAT, CRYPTO"
+        string currency "USD, TRY, BTC, ETH"
+        decimal balance
+        string iban_or_wallet_address
+        string status
+    }
+
+    TRANSACTIONS {
+        bigint id PK
+        bigint source_account_id FK
+        bigint target_account_id FK
+        decimal amount
+        string currency
+        datetime timestamp
+        string status "PENDING, SUCCESS, FAILED"
+        string type "TRANSFER, PAYMENT, BILL"
+    }
+
+    USERS ||--o{ ACCOUNTS : "owns"
+    ACCOUNTS ||--o{ TRANSACTIONS : "initiates"
+
+    %% Akıllı Şehir Modülü
+    SENSORS {
+        bigint id PK
+        string type "TRAFFIC, LIGHT, SMOKE"
+        string location_code
+        string status "ACTIVE, MAINTENANCE"
+        decimal last_value
+    }
+
+    SENSOR_EVENTS {
+        bigint id PK
+        bigint sensor_id FK
+        datetime timestamp
+        string event_type
+        decimal value
+        string severity "INFO, WARNING, CRITICAL"
+    }
+
+    CITY_ROUTINES {
+        int id PK
+        string name
+        string trigger_condition
+        string action_command
+    }
+
+    SENSORS ||--o{ SENSOR_EVENTS : "generates"
+    
+    %% Audit ve Loglama
+    AUDIT_LOGS {
+        bigint id PK
+        bigint user_id FK
+        string action
+        string entity_affected
+        datetime timestamp
+        string ip_address
+    }
+
+    USERS ||--o{ AUDIT_LOGS : "performs"
