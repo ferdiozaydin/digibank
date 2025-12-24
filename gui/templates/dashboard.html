@@ -26,29 +26,17 @@
 
   <!-- Quick Actions -->
   <div class="card">
-    <h3>Hızlı İşlemler</h3>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px">
+    <div class="card-top">
+      <h3>Hızlı İşlemler</h3>
+      <span class="pill">Kısayollar</span>
+    </div>
+
+    <div class="quick-actions" style="margin-top: 14px">
       <a class="btn" href="{{ url_for('transfer') }}">Para Gönder</a>
-      <button class="btn" onclick="location.href='{{ url_for('smart_gov') }}'">
-        Fatura Öde
-      </button>
-      <a class="btn" href="{{ url_for('fx_swap') }}">Döviz/Swap</a>
-      <a class="btn" href="{{ url_for('home_control') }}">Akıllı Ev</a>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap">
-        <form
-          action="{{ url_for('export_data') }}"
-          method="post"
-          style="display: inline"
-        >
-          <button
-            type="submit"
-            class="btn"
-            style="background-color: var(--success)"
-          >
-            Sunucuya Aktar
-          </button>
-        </form>
-      </div>
+      <a class="btn" href="{{ url_for('smart_gov') }}">Fatura Öde</a>
+      <a class="btn ghost" href="{{ url_for('transactions') }}">İşlem Kayıtları</a>
+      <a class="btn ghost" href="{{ url_for('fx_swap') }}">Döviz/Swap</a>
+      <a class="btn ghost" href="{{ url_for('home_control') }}">Akıllı Ev</a>
     </div>
   </div>
 </div>
