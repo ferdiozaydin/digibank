@@ -2,56 +2,16 @@
 {% block content %}
 <div class="hero-section">
   <h1>İşlem Kayıtları</h1>
-  <p>İşlemler: ekle / düzelt / ara / listele / sil (Postgres).</p>
 </div>
 
 <div class="grid">
   <div class="card">
     <div class="card-top">
-      <h3>Yeni İşlem Ekle</h3>
-      <span class="pill">Admin yetkisi gerekir</span>
-    </div>
-
-    <form method="post" style="display:grid; gap:12px; margin-top:12px;">
-      <input type="hidden" name="action" value="create" />
-
-      <div>
-        <label for="fullName">Ad Soyad</label>
-        <input class="input" id="fullName" name="fullName" placeholder="Ferdi Özaydın" required />
+      <h3>Digibank - İşlem Listesi</h3>
+      <div class="pill-row">
+        <span class="pill">Admin: tümü, Resident: kendi</span>
+        <button class="btn small" type="button" id="openTxCreate">Yeni İşlem</button>
       </div>
-
-      <div>
-        <label for="amount">Para</label>
-        <input class="input" id="amount" name="amount" type="number" step="0.01" placeholder="100.00" required />
-      </div>
-
-      <div>
-        <label for="bankCode">Banka Kodu</label>
-        <select class="input" id="bankCode" name="bankCode" required>
-          {% for b in bank_codes %}
-          <option value="{{ b }}">{{ b }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div>
-        <label for="address">Adres</label>
-        <input class="input" id="address" name="address" placeholder="Beşiktaş / İstanbul" required />
-      </div>
-
-      <div>
-        <label for="recordDate">Kayıt Tarihi</label>
-        <input class="input" id="recordDate" name="recordDate" type="date" value="{{ today }}" required />
-      </div>
-
-      <button class="btn" type="submit">Kaydet</button>
-    </form>
-  </div>
-
-  <div class="card">
-    <div class="card-top">
-      <h3>İşlem Listesi</h3>
-      <span class="pill">Admin: tümü, Resident: kendi</span>
     </div>
 
     <form method="get" style="display:flex; gap:10px; align-items:center; margin: 10px 0 14px;">
@@ -64,7 +24,7 @@
         style="flex:1"
       />
       <button class="btn" type="submit">Ara</button>
-      <a class="btn" href="{{ url_for('transactions_download', q=(q or '')) }}">Listeyi İndir (CSV)</a>
+      <a class="btn ghost" href="{{ url_for('transactions_download', q=(q or '')) }}">Listeyi İndir (CSV)</a>
     </form>
 
     <div class="table-responsive">
@@ -127,4 +87,99 @@
     </div>
   </div>
 </div>
+
+<!-- Create Transaction Modal -->
+<div class="modal-overlay" id="txCreateModal" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="txCreateTitle">
+    <div class="modal-header">
+      <div>
+        <h3 id="txCreateTitle" style="margin:0;">Yeni İşlem Ekle</h3>
+        <div class="text-muted" style="margin-top:6px; font-size:0.9rem;">Admin yetkisi gerekir</div>
+      </div>
+      <button class="modal-close" type="button" id="closeTxCreate" aria-label="Kapat">Kapat</button>
+    </div>
+
+    <form id="txCreateForm" method="post" style="display:grid; gap:12px;">
+      <input type="hidden" name="action" value="create" />
+
+      <div>
+        <label for="tx_fullName">Ad Soyad</label>
+        <input class="input" id="tx_fullName" name="fullName" placeholder="Ferdi Özaydın" required />
+      </div>
+
+      <div>
+        <label for="tx_amount">Para</label>
+        <input class="input" id="tx_amount" name="amount" type="number" step="0.01" placeholder="100.00" required />
+      </div>
+
+      <div>
+        <label for="tx_bankCode">Banka Kodu</label>
+        <select class="input" id="tx_bankCode" name="bankCode" required>
+          {% for b in bank_codes %}
+          <option value="{{ b }}">{{ b }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="tx_address">Adres</label>
+        <input class="input" id="tx_address" name="address" placeholder="Beşiktaş / İstanbul" required />
+      </div>
+
+      <div>
+        <label for="tx_recordDate">Kayıt Tarihi</label>
+        <input class="input" id="tx_recordDate" name="recordDate" type="date" value="{{ today }}" required />
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:6px;">
+        <button class="btn ghost" type="button" id="cancelTxCreate">Vazgeç</button>
+        <button class="btn" type="submit">Kaydet</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const openBtn = document.getElementById('openTxCreate');
+    const modal = document.getElementById('txCreateModal');
+    const closeBtn = document.getElementById('closeTxCreate');
+    const cancelBtn = document.getElementById('cancelTxCreate');
+    const form = document.getElementById('txCreateForm');
+    const firstField = document.getElementById('tx_fullName');
+
+    function openModal() {
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      if (firstField) firstField.focus();
+    }
+
+    function closeModal() {
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+    }
+
+    if (openBtn) openBtn.addEventListener('click', openModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+    if (modal) {
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeModal();
+      });
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    if (form) {
+      form.addEventListener('submit', function () {
+        closeModal();
+      });
+    }
+  })();
+</script>
 {% endblock %}
