@@ -1,6 +1,14 @@
 version: "3.8"
 
 services:
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: digibank-mailpit
+    restart: always
+    ports:
+      - "8025:8025" # Web UI
+      - "1025:1025" # SMTP
+
   db:
     image: postgres:14
     container_name: digibank-db
@@ -40,8 +48,14 @@ services:
       - "8000:8000"
     depends_on:
       - backend-java
+      - mailpit
     environment:
       - BACKEND_URL=http://backend-java:8080
+      - DIGIBANK_SMTP_HOST=mailpit
+      - DIGIBANK_SMTP_PORT=1025
+      - DIGIBANK_SMTP_USE_TLS=0
+      - DIGIBANK_SMTP_FROM=digibank@local.test
+      - DIGIBANK_TX_EMAIL_TO=transactions@local.test
     restart: always
 
 volumes:

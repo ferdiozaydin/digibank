@@ -25,6 +25,15 @@
       <button class="btn" type="submit">Ara</button>
       <a class="btn ghost" href="{{ url_for('transactions_download', q=(q or '')) }}">Excel İndir</a>
       <a class="btn ghost" href="{{ url_for('transactions_download_pdf', q=(q or '')) }}">PDF İndir</a>
+      <button
+        class="btn ghost"
+        type="submit"
+        formmethod="post"
+        formaction="{{ url_for('transactions_email') }}"
+        onclick="return confirm('Hesap hareketlerini mail olarak göndermek istediğinize emin misiniz?')"
+      >
+        Mail Gönder
+      </button>
     </form>
 
     <div class="table-responsive">

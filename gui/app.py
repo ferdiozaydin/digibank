@@ -4,6 +4,9 @@ import requests
 import os
 import io
 import random
+import smtplib
+from email.message import EmailMessage
+from typing import Optional
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
@@ -14,6 +17,18 @@ API_URL = os.environ.get('BACKEND_URL', 'http://localhost:8080')
 VALID_USERNAME = os.environ.get('DIGIBANK_USERNAME', 'admin')
 VALID_PASSWORD = os.environ.get('DIGIBANK_PASSWORD', 'admin')
 VALID_TOTP = os.environ.get('DIGIBANK_TOTP', '000000')
+
+# SMTP (açık standart) ayarları
+# Varsayılanlar: docker-compose içindeki mail catcher (Mailpit)
+SMTP_HOST = os.environ.get('DIGIBANK_SMTP_HOST', 'mailpit')
+SMTP_PORT = int(os.environ.get('DIGIBANK_SMTP_PORT', '1025'))
+SMTP_USER = os.environ.get('DIGIBANK_SMTP_USER', '')
+SMTP_PASS = os.environ.get('DIGIBANK_SMTP_PASS', '')
+SMTP_FROM = os.environ.get('DIGIBANK_SMTP_FROM', 'digibank@local.test')
+SMTP_USE_TLS = os.environ.get('DIGIBANK_SMTP_USE_TLS', '0') not in ('0', 'false', 'False')
+
+# Mail catcher hedefi (gerçek mail gönderimi yok)
+TX_EMAIL_TO = os.environ.get('DIGIBANK_TX_EMAIL_TO', 'transactions@local.test')
 
 # Mock data for UI demos
 FAKE_CARDS = [
@@ -1072,10 +1087,12 @@ def transactions():
     )
 
 
-@app.route('/transactions/download')
-def transactions_download():
-    """Transactions listesini Excel (XLSX) olarak indirir (q parametresi desteklenir)."""
-    q = (request.args.get('q') or '').strip()
+def _fetch_manual_transactions_for_export(q: str, next_path: Optional[str] = None):
+    if next_path is None:
+        try:
+            next_path = request.path
+        except Exception:
+            next_path = '/transactions'
 
     try:
         if q:
@@ -1088,9 +1105,9 @@ def transactions_download():
         else:
             resp = requests.get(f"{API_URL}/api/transactions", headers=_auth_headers(), timeout=5)
 
-        redir = _handle_unauthorized(resp, next_path=request.path)
+        redir = _handle_unauthorized(resp, next_path=next_path)
         if redir:
-            return redir
+            return [], redir
 
         txs = resp.json() if resp.status_code == 200 else []
     except Exception:
@@ -1101,6 +1118,10 @@ def transactions_download():
     except Exception:
         txs = []
 
+    return txs, None
+
+
+def _transactions_xlsx_bytes(txs):
     from openpyxl import Workbook
 
     wb = Workbook()
@@ -1119,49 +1140,13 @@ def transactions_download():
             ]
         )
 
-    file_buf = io.BytesIO()
-    wb.save(file_buf)
-    file_buf.seek(0)
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_q = (q[:40] if q else "all")
-    filename = f"digibank_transactions_{safe_q}_{stamp}.xlsx"
-    return send_file(
-        file_buf,
-        as_attachment=True,
-        download_name=filename,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.getvalue()
 
 
-@app.route('/transactions/download/pdf')
-def transactions_download_pdf():
-    """Transactions listesini PDF olarak indirir (q parametresi desteklenir)."""
-    q = (request.args.get('q') or '').strip()
-
-    try:
-        if q:
-            resp = requests.get(
-                f"{API_URL}/api/transactions/search",
-                params={"q": q},
-                headers=_auth_headers(),
-                timeout=5,
-            )
-        else:
-            resp = requests.get(f"{API_URL}/api/transactions", headers=_auth_headers(), timeout=5)
-
-        redir = _handle_unauthorized(resp, next_path=request.path)
-        if redir:
-            return redir
-
-        txs = resp.json() if resp.status_code == 200 else []
-    except Exception:
-        txs = []
-
-    try:
-        txs = [tx for tx in (txs or []) if _is_valid_manual_tx(tx)]
-    except Exception:
-        txs = []
-
+def _transactions_pdf_bytes(txs, q: str):
     def _ascii_tr(s):
         s = "" if s is None else str(s)
         table = str.maketrans({
@@ -1209,8 +1194,6 @@ def transactions_download_pdf():
             tx.get("recordDate", ""),
         ]
         row = [_ascii_tr(v) for v in row]
-
-        # Basit satır: adresi çok uzunsa kes.
         if len(row[4]) > 80:
             row[4] = row[4][:77] + "..."
 
@@ -1220,14 +1203,102 @@ def transactions_download_pdf():
 
     raw_pdf = pdf.output(dest="S")
     if isinstance(raw_pdf, (bytes, bytearray)):
-        pdf_bytes = bytes(raw_pdf)
-    else:
-        pdf_bytes = str(raw_pdf).encode("latin-1", errors="replace")
-    file_buf = io.BytesIO(pdf_bytes)
+        return bytes(raw_pdf)
+    return str(raw_pdf).encode("latin-1", errors="replace")
+
+
+@app.route('/transactions/download')
+def transactions_download():
+    """Transactions listesini Excel (XLSX) olarak indirir (q parametresi desteklenir)."""
+    q = (request.args.get('q') or '').strip()
+
+    txs, redir = _fetch_manual_transactions_for_export(q)
+    if redir:
+        return redir
+
+    file_buf = io.BytesIO(_transactions_xlsx_bytes(txs))
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_q = (q[:40] if q else "all")
+    filename = f"digibank_transactions_{safe_q}_{stamp}.xlsx"
+    return send_file(
+        file_buf,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+
+@app.route('/transactions/download/pdf')
+def transactions_download_pdf():
+    """Transactions listesini PDF olarak indirir (q parametresi desteklenir)."""
+    q = (request.args.get('q') or '').strip()
+
+    txs, redir = _fetch_manual_transactions_for_export(q)
+    if redir:
+        return redir
+
+    file_buf = io.BytesIO(_transactions_pdf_bytes(txs, q=q))
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_q = (q[:40] if q else "all")
     filename = f"digibank_transactions_{safe_q}_{stamp}.pdf"
     return send_file(file_buf, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+
+@app.route('/transactions/email', methods=['POST'])
+def transactions_email():
+    q = (request.form.get('q') or '').strip()
+
+    txs, redir = _fetch_manual_transactions_for_export(q)
+    if redir:
+        return redir
+
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_q = (q[:40] if q else "all")
+
+    try:
+        xlsx_bytes = _transactions_xlsx_bytes(txs)
+        pdf_bytes = _transactions_pdf_bytes(txs, q=q)
+
+        msg = EmailMessage()
+        msg['Subject'] = f"DigiBank Hesap Hareketleri ({safe_q})"
+        msg['From'] = (SMTP_FROM or SMTP_USER or 'digibank@local.test')
+        msg['To'] = TX_EMAIL_TO
+
+        body_lines = [
+            "Merhaba,",
+            "",
+            "DigiBank hesap hareketleri ektedir.",
+            f"Filtre: {safe_q}",
+            f"Kayıt sayısı: {len(txs)}",
+            f"Tarih: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        ]
+        msg.set_content("\n".join(body_lines))
+
+        msg.add_attachment(
+            xlsx_bytes,
+            maintype='application',
+            subtype='vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            filename=f"digibank_transactions_{safe_q}_{stamp}.xlsx",
+        )
+        msg.add_attachment(
+            pdf_bytes,
+            maintype='application',
+            subtype='pdf',
+            filename=f"digibank_transactions_{safe_q}_{stamp}.pdf",
+        )
+
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+            if SMTP_USE_TLS:
+                server.starttls()
+            if SMTP_USER and SMTP_PASS:
+                server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+
+        flash(f"Mail gönderildi: {TX_EMAIL_TO}", 'success')
+    except Exception:
+        flash('Mail gönderilemedi: SMTP/bağlantı hatası.', 'error')
+
+    return redirect(url_for('transactions', q=q))
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)
