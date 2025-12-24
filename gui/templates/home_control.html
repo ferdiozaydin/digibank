@@ -51,13 +51,18 @@
     <div class="status-list">
       {% for sys in home_dash.systems %}
       <div class="status-item">
-        <span class="status-dot {{ 'ok' if sys.status == 'ok' else ('warn' if sys.status == 'warn' else 'error') }}"></span>
+        <span
+          class="status-dot {{ 'ok' if sys.status == 'ok' else ('warn' if sys.status == 'warn' else 'error') }}"
+        ></span>
         <div>
           <strong>{{ sys.name }}</strong>
           <div class="text-muted">{{ sys.detail }}</div>
         </div>
-        <span class="status-pill {{ 'ok' if sys.status == 'ok' else ('warn' if sys.status == 'warn' else 'error') }}">
-          {{ 'Çalışıyor' if sys.status == 'ok' else ('İzleniyor' if sys.status == 'warn' else 'Sorun') }}
+        <span
+          class="status-pill {{ 'ok' if sys.status == 'ok' else ('warn' if sys.status == 'warn' else 'error') }}"
+        >
+          {{ 'Çalışıyor' if sys.status == 'ok' else ('İzleniyor' if sys.status
+          == 'warn' else 'Sorun') }}
         </span>
       </div>
       {% endfor %}
@@ -121,11 +126,7 @@
         class="input"
       />
       <label for="state">Durum</label>
-      <select
-        id="state"
-        name="state"
-        class="select"
-      >
+      <select id="state" name="state" class="select">
         <option value="on">Aç</option>
         <option value="off">Kapat</option>
       </select>

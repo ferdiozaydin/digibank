@@ -21,8 +21,14 @@
       <h3>Bekleyen Toplam</h3>
       <span class="pill">Borç</span>
     </div>
-    <div class="kpi-value">₺{{ "{:,.2f}".format(bill_summary.pendingTotal if bill_summary is defined else 0) }}</div>
-    <p class="text-muted">{{ bill_summary.pendingCount if bill_summary is defined else 0 }} adet ödeme</p>
+    <div class="kpi-value">
+      ₺{{ "{:,.2f}".format(bill_summary.pendingTotal if bill_summary is defined
+      else 0) }}
+    </div>
+    <p class="text-muted">
+      {{ bill_summary.pendingCount if bill_summary is defined else 0 }} adet
+      ödeme
+    </p>
   </div>
 
   <div class="card kpi-card">
@@ -30,7 +36,9 @@
       <h3>Yaklaşan Son Tarih</h3>
       <span class="pill warning">Takip</span>
     </div>
-    <div class="kpi-value">{{ bill_summary.soonestDueText if bill_summary is defined else '-' }}</div>
+    <div class="kpi-value">
+      {{ bill_summary.soonestDueText if bill_summary is defined else '-' }}
+    </div>
     <p class="text-muted">En yakın vade</p>
   </div>
 
@@ -39,8 +47,13 @@
       <h3>Ödenen (Listede)</h3>
       <span class="pill live">Tamam</span>
     </div>
-    <div class="kpi-value">{{ bill_summary.paidCount if bill_summary is defined else 0 }}</div>
-    <p class="text-muted">₺{{ "{:,.2f}".format(bill_summary.paidTotal if bill_summary is defined else 0) }}</p>
+    <div class="kpi-value">
+      {{ bill_summary.paidCount if bill_summary is defined else 0 }}
+    </div>
+    <p class="text-muted">
+      ₺{{ "{:,.2f}".format(bill_summary.paidTotal if bill_summary is defined
+      else 0) }}
+    </p>
   </div>
 
   <div class="card kpi-card">
@@ -87,21 +100,31 @@
               <div>{{ bill.dueText }}</div>
               {% if bill.daysLeft is not none %}
               <div style="margin-top: 6px">
-                <span class="pill {{ 'error' if bill.urgency == 'error' else ('warning' if bill.urgency == 'warn' else 'ghost') }}">
+                <span
+                  class="pill {{ 'error' if bill.urgency == 'error' else ('warning' if bill.urgency == 'warn' else 'ghost') }}"
+                >
                   {{ bill.daysText }}
                 </span>
               </div>
               {% endif %}
             </td>
-            <td style="font-weight: 700">₺{{ "{:,.2f}".format(bill.amount) }}</td>
+            <td style="font-weight: 700">
+              ₺{{ "{:,.2f}".format(bill.amount) }}
+            </td>
             <td>
-              <span class="status-pill {{ 'ok' if bill.isPaid else ('error' if bill.urgency == 'error' else 'warn') }}">
+              <span
+                class="status-pill {{ 'ok' if bill.isPaid else ('error' if bill.urgency == 'error' else 'warn') }}"
+              >
                 {{ bill.statusText }}
               </span>
             </td>
             <td style="min-width: 240px">
               {% if not bill.isPaid %}
-              <form action="{{ url_for('pay_bill', bill_id=bill.billingId) }}" method="POST" class="inline-form">
+              <form
+                action="{{ url_for('pay_bill', bill_id=bill.billingId) }}"
+                method="POST"
+                class="inline-form"
+              >
                 <select name="payMode" class="select">
                   <option value="FIAT">TL</option>
                   <option value="BTC">BTC</option>
@@ -111,15 +134,21 @@
                 <button type="submit" class="btn small">Öde</button>
               </form>
               {% else %}
-              <button class="btn small" disabled style="opacity: 0.6; cursor: not-allowed">Ödendi</button>
+              <button
+                class="btn small"
+                disabled
+                style="opacity: 0.6; cursor: not-allowed"
+              >
+                Ödendi
+              </button>
               {% endif %}
             </td>
           </tr>
-          {% endfor %}
-
-          {% if not bills %}
+          {% endfor %} {% if not bills %}
           <tr>
-            <td colspan="6" class="text-muted">Bekleyen faturaya rastlanmadı. Tüm borçlar güncel.</td>
+            <td colspan="6" class="text-muted">
+              Bekleyen faturaya rastlanmadı. Tüm borçlar güncel.
+            </td>
           </tr>
           {% endif %}
         </tbody>
