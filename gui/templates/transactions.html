@@ -65,6 +65,7 @@
       />
       <button class="btn" type="submit">Ara</button>
       <a class="btn ghost" href="{{ url_for('transactions') }}">Sıfırla</a>
+      <a class="btn" href="{{ url_for('transactions_download', q=(q or '')) }}">Listeyi İndir (CSV)</a>
     </form>
 
     <div class="table-responsive">

@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
+import csv
 import requests
 import os
 import io
@@ -1069,6 +1070,57 @@ def transactions():
         today=datetime.now().date().isoformat(),
         bank_codes=bank_codes,
     )
+
+
+@app.route('/transactions/download')
+def transactions_download():
+    """Transactions listesini CSV olarak indirir (q parametresi desteklenir)."""
+    q = (request.args.get('q') or '').strip()
+
+    try:
+        if q:
+            resp = requests.get(
+                f"{API_URL}/api/transactions/search",
+                params={"q": q},
+                headers=_auth_headers(),
+                timeout=5,
+            )
+        else:
+            resp = requests.get(f"{API_URL}/api/transactions", headers=_auth_headers(), timeout=5)
+
+        redir = _handle_unauthorized(resp, next_path=request.path)
+        if redir:
+            return redir
+
+        txs = resp.json() if resp.status_code == 200 else []
+    except Exception:
+        txs = []
+
+    try:
+        txs = [tx for tx in (txs or []) if _is_valid_manual_tx(tx)]
+    except Exception:
+        txs = []
+
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["id", "fullName", "amount", "bankCode", "address", "recordDate"])
+    for tx in txs:
+        writer.writerow(
+            [
+                tx.get("id", ""),
+                tx.get("fullName", ""),
+                tx.get("amount", ""),
+                tx.get("bankCode", ""),
+                tx.get("address", ""),
+                tx.get("recordDate", ""),
+            ]
+        )
+
+    file_buf = io.BytesIO(out.getvalue().encode("utf-8"))
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_q = (q[:40] if q else "all")
+    filename = f"digibank_transactions_{safe_q}_{stamp}.csv"
+    return send_file(file_buf, as_attachment=True, download_name=filename, mimetype='text/csv')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)
