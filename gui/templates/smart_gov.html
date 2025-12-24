@@ -7,112 +7,124 @@
 <div class="grid">
   <div class="card">
     <h3>Aktif Entegrasyonlar</h3>
-    <div style="margin-top: 15px; display: flex; gap: 15px">
-      <span
-        style="
-          background: rgba(16, 185, 129, 0.2);
-          color: #10b981;
-          padding: 5px 10px;
-          border-radius: 4px;
-          font-size: 0.8rem;
-        "
-        >E-Devlet bağlı</span
-      >
-      <span
-        style="
-          background: rgba(16, 185, 129, 0.2);
-          color: #10b981;
-          padding: 5px 10px;
-          border-radius: 4px;
-          font-size: 0.8rem;
-        "
-        >Trafik sistem bağlı</span
-      >
+    <div class="pill-row" style="margin-top: 14px">
+      <span class="pill live">E-Devlet bağlı</span>
+      <span class="pill live">Trafik sistem bağlı</span>
+      <span class="pill ghost">Son güncelleme: {{ bills_updated_at }}</span>
     </div>
   </div>
 </div>
 
+<div class="grid metrics-grid" style="margin-top: 20px">
+  <div class="card kpi-card">
+    <div class="card-top">
+      <h3>Bekleyen Toplam</h3>
+      <span class="pill">Borç</span>
+    </div>
+    <div class="kpi-value">₺{{ "{:,.2f}".format(bill_summary.pendingTotal if bill_summary is defined else 0) }}</div>
+    <p class="text-muted">{{ bill_summary.pendingCount if bill_summary is defined else 0 }} adet ödeme</p>
+  </div>
+
+  <div class="card kpi-card">
+    <div class="card-top">
+      <h3>Yaklaşan Son Tarih</h3>
+      <span class="pill warning">Takip</span>
+    </div>
+    <div class="kpi-value">{{ bill_summary.soonestDueText if bill_summary is defined else '-' }}</div>
+    <p class="text-muted">En yakın vade</p>
+  </div>
+
+  <div class="card kpi-card">
+    <div class="card-top">
+      <h3>Ödenen (Listede)</h3>
+      <span class="pill live">Tamam</span>
+    </div>
+    <div class="kpi-value">{{ bill_summary.paidCount if bill_summary is defined else 0 }}</div>
+    <p class="text-muted">₺{{ "{:,.2f}".format(bill_summary.paidTotal if bill_summary is defined else 0) }}</p>
+  </div>
+
+  <div class="card kpi-card">
+    <div class="card-top">
+      <h3>Ödeme Kanalları</h3>
+      <span class="pill ghost">Demo</span>
+    </div>
+    <div class="kpi-value">TL / BTC</div>
+    <p class="text-muted">ETH / Stablecoin</p>
+  </div>
+</div>
+
 <h2 style="margin-top: 40px">Bekleyen Devlet Faturaları</h2>
-<div class="grid">
-  {% for bill in bills %}
-  <div class="card">
-    <div
-      style="
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-      "
-    >
-      <div>
-        <h3 style="color: var(--accent); margin-bottom: 5px">
-          {{ bill.type }}
-        </h3>
-        <code
-          style="
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 5px;
-            border-radius: 3px;
-          "
-          >{{ bill.billingId }}</code
-        >
-      </div>
-      <div style="text-align: right">
-        <div style="font-size: 1.5rem; font-weight: bold">
-          ₺{{ "{:,.2f}".format(bill.amount) }}
-        </div>
-        <div
-          style="font-size: 0.8rem; color: {{ 'var(--success)' if bill.isPaid else 'var(--error)' }}"
-        >
-          {{ 'ÖDEME TAMAM' if bill.isPaid else 'ÖDEME BEKLİYOR' }}
-        </div>
-      </div>
+<div class="grid" style="margin-top: 18px">
+  <div class="card" style="grid-column: 1 / -1">
+    <div class="card-top">
+      <h3>Fatura Listesi</h3>
+      <span class="pill ghost">Ödeme işlemi simülasyon + API</span>
     </div>
 
-    {% if not bill.isPaid %}
-    <form
-      action="{{ url_for('pay_bill', bill_id=bill.billingId) }}"
-      method="POST"
-      style="margin-top: 20px"
-    >
-      <label for="payMode" style="font-size: 0.9rem; color: #94a3b8"
-        >Ödeme Türü</label
-      >
-      <select
-        name="payMode"
-        style="
-          width: 100%;
-          padding: 8px;
-          margin: 6px 0 12px 0;
-          border-radius: 6px;
-          border: 1px solid #1f2937;
-          background: #0f172a;
-          color: #e2e8f0;
-        "
-      >
-        <option value="FIAT">TL</option>
-        <option value="BTC">BTC</option>
-        <option value="ETH">ETH</option>
-        <option value="STABLE">Stablecoin</option>
-      </select>
-      <button type="submit" class="btn btn-pay">DigiBank ile Öde</button>
-    </form>
-    {% else %}
-    <button
-      class="btn btn-pay"
-      disabled
-      style="background: #334155; cursor: not-allowed"
-    >
-      Ödeme Tamamlandı
-    </button>
-    {% endif %}
-  </div>
-  {% endfor %}
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Tür</th>
+            <th>Kurum</th>
+            <th>Son Tarih</th>
+            <th>Tutar</th>
+            <th>Durum</th>
+            <th>İşlem</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for bill in bills %}
+          <tr>
+            <td>
+              <div style="font-weight: 700">{{ bill.typeLabel }}</div>
+              <div class="text-muted" style="margin-top: 4px">
+                <code class="code-inline">{{ bill.billingId }}</code>
+              </div>
+            </td>
+            <td>{{ bill.institution }}</td>
+            <td>
+              <div>{{ bill.dueText }}</div>
+              {% if bill.daysLeft is not none %}
+              <div style="margin-top: 6px">
+                <span class="pill {{ 'error' if bill.urgency == 'error' else ('warning' if bill.urgency == 'warn' else 'ghost') }}">
+                  {{ bill.daysText }}
+                </span>
+              </div>
+              {% endif %}
+            </td>
+            <td style="font-weight: 700">₺{{ "{:,.2f}".format(bill.amount) }}</td>
+            <td>
+              <span class="status-pill {{ 'ok' if bill.isPaid else ('error' if bill.urgency == 'error' else 'warn') }}">
+                {{ bill.statusText }}
+              </span>
+            </td>
+            <td style="min-width: 240px">
+              {% if not bill.isPaid %}
+              <form action="{{ url_for('pay_bill', bill_id=bill.billingId) }}" method="POST" class="inline-form">
+                <select name="payMode" class="select">
+                  <option value="FIAT">TL</option>
+                  <option value="BTC">BTC</option>
+                  <option value="ETH">ETH</option>
+                  <option value="STABLE">Stablecoin</option>
+                </select>
+                <button type="submit" class="btn small">Öde</button>
+              </form>
+              {% else %}
+              <button class="btn small" disabled style="opacity: 0.6; cursor: not-allowed">Ödendi</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
 
-  <!-- Empty State if no bills -->
-  {% if not bills %}
-  <div class="card">
-    <p>Bekleyen faturaya rastlanmadı. Tüm borçlar güncel.</p>
+          {% if not bills %}
+          <tr>
+            <td colspan="6" class="text-muted">Bekleyen faturaya rastlanmadı. Tüm borçlar güncel.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
   </div>
-  {% endif %}
 </div>
 {% endblock %}

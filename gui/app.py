@@ -2,7 +2,8 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 import requests
 import os
 import io
-from datetime import datetime
+import random
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = 'digibank_secret'
@@ -135,6 +136,252 @@ def _get_fx_rate(src: str, dst: str):
     if src == dst:
         return 1.0
     return FX_RATES.get(src, {}).get(dst)
+
+
+def _daily_rng(salt: str = "") -> random.Random:
+    """Günlük değişen ama sayfa yenilemede stabil demo verisi için RNG."""
+    day_seed = datetime.now().strftime("%Y%m%d")
+    user_seed = session.get("username") or "guest"
+    return random.Random(f"{day_seed}:{user_seed}:{salt}")
+
+
+def _try_parse_date(date_str: str):
+    if not date_str:
+        return None
+    val = str(date_str).strip()
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%Y/%m/%d", "%d.%m", "%d/%m"):
+        try:
+            dt = datetime.strptime(val, fmt)
+            if fmt in ("%d.%m", "%d/%m"):
+                dt = dt.replace(year=datetime.now().year)
+            return dt
+        except ValueError:
+            continue
+    return None
+
+
+def _bill_type_meta(raw_type: str) -> dict:
+    t = (raw_type or "").strip().upper()
+    mapping = {
+        "TAX": ("Vergi Borcu", "Gelir İdaresi"),
+        "TRAFFIC_FINE": ("Trafik Cezası", "Emniyet Genel Müdürlüğü"),
+        "UTILITY": ("Kamu Hizmeti", "Belediye / Kamu"),
+        "MTV": ("Motorlu Taşıtlar Vergisi", "Gelir İdaresi"),
+        "SGK": ("SGK Prim Borcu", "SGK"),
+        "PROPERTY_TAX": ("Emlak Vergisi", "Belediye"),
+        "PASSPORT": ("Pasaport Harcı", "Nüfus ve Vatandaşlık"),
+    }
+    label, institution = mapping.get(t, (raw_type or "Devlet Ödemesi", "Kamu"))
+    return {"label": label, "institution": institution}
+
+
+def _generate_demo_bills(now: datetime):
+    rng = _daily_rng("bills")
+    templates = [
+        ("TAX", 825.40, 6),
+        ("TRAFFIC_FINE", 1420.00, 2),
+        ("UTILITY", 356.90, 11),
+        ("SGK", 2150.75, 18),
+        ("MTV", 2975.00, 4),
+        ("PROPERTY_TAX", 980.30, 14),
+        ("PASSPORT", 215.00, 30),
+    ]
+
+    rng.shuffle(templates)
+    count = rng.randint(4, 6)
+    picked = templates[:count]
+
+    bills = []
+    for idx, (bill_type, base_amount, due_in_days) in enumerate(picked, start=1):
+        jitter = rng.uniform(-0.08, 0.12)
+        amount = round(base_amount * (1 + jitter), 2)
+        due = (now + timedelta(days=due_in_days)).date().isoformat()
+        bill_id = f"GOV-{now.strftime('%Y%m')}-{rng.randint(1000, 9999)}-{idx:02d}"
+        # Bazılarını ödenmiş göster
+        is_paid = rng.random() < 0.25
+        bills.append({
+            "billingId": bill_id,
+            "type": bill_type,
+            "amount": amount,
+            "date": due,
+            "isPaid": bool(is_paid),
+        })
+
+    return bills
+
+
+def _decorate_bills(bills: list, now: datetime) -> list:
+    out = []
+    for b in (bills or []):
+        billing_id = (b.get("billingId") if isinstance(b, dict) else getattr(b, "billingId", None))
+        raw_type = (b.get("type") if isinstance(b, dict) else getattr(b, "type", None))
+        amount_raw = (b.get("amount") if isinstance(b, dict) else getattr(b, "amount", 0))
+        date_raw = (b.get("date") if isinstance(b, dict) else getattr(b, "date", None))
+        is_paid = (b.get("isPaid") if isinstance(b, dict) else getattr(b, "isPaid", False))
+
+        try:
+            amount = float(amount_raw)
+        except Exception:
+            amount = 0.0
+
+        due_dt = _try_parse_date(date_raw)
+        if due_dt:
+            days_left = (due_dt.date() - now.date()).days
+            due_text = due_dt.strftime("%d.%m.%Y")
+        else:
+            days_left = None
+            due_text = "-"
+
+        if days_left is None:
+            days_text = "-"
+        elif days_left < 0:
+            days_text = f"gecikti ({abs(days_left)}g)"
+        else:
+            days_text = f"{days_left} gün"
+
+        meta = _bill_type_meta(raw_type)
+
+        if bool(is_paid):
+            urgency = "ok"
+            status_text = "Ödeme tamam"
+        else:
+            if days_left is None:
+                urgency = "warn"
+                status_text = "Ödeme bekliyor"
+            elif days_left < 0:
+                urgency = "error"
+                status_text = "Gecikti"
+            elif days_left <= 3:
+                urgency = "warn"
+                status_text = "Son günler"
+            else:
+                urgency = "ghost"
+                status_text = "Ödeme bekliyor"
+
+        out.append({
+            "billingId": billing_id or "-",
+            "rawType": raw_type or "-",
+            "typeLabel": meta["label"],
+            "institution": meta["institution"],
+            "amount": amount,
+            "date": date_raw or "-",
+            "dueText": due_text,
+            "daysLeft": days_left,
+            "daysText": days_text,
+            "isPaid": bool(is_paid),
+            "urgency": urgency,
+            "statusText": status_text,
+        })
+
+    def _sort_key(row):
+        unpaid_rank = 0 if not row["isPaid"] else 1
+        if row["daysLeft"] is None:
+            return (unpaid_rank, 9999, row["billingId"])
+        return (unpaid_rank, row["daysLeft"], row["billingId"])
+
+    out.sort(key=_sort_key)
+    return out
+
+
+def _bill_summary(decorated: list) -> dict:
+    pending = [b for b in decorated if not b.get("isPaid")]
+    paid = [b for b in decorated if b.get("isPaid")]
+    pending_total = round(sum((b.get("amount") or 0) for b in pending), 2)
+    paid_total = round(sum((b.get("amount") or 0) for b in paid), 2)
+    soonest = None
+    soonest_days = None
+    for b in pending:
+        d = b.get("daysLeft")
+        if d is None:
+            continue
+        if soonest_days is None or d < soonest_days:
+            soonest_days = d
+            soonest = b.get("dueText")
+    return {
+        "pendingCount": len(pending),
+        "pendingTotal": pending_total,
+        "paidCount": len(paid),
+        "paidTotal": paid_total,
+        "soonestDueText": soonest or "-",
+    }
+
+
+def _generate_home_dashboard(now: datetime) -> dict:
+    rng = _daily_rng("home")
+    indoor_temp = round(rng.uniform(19.5, 24.5), 1)
+    humidity = rng.randint(32, 58)
+    active_devices = rng.randint(6, 14)
+    energy_today = round(rng.uniform(5.8, 18.4), 1)
+    wifi_quality = rng.randint(78, 99)
+
+    systems = [
+        {
+            "name": "Güvenlik Sistemi",
+            "detail": rng.choice(["Alarm kurulu", "Ev modu", "Gece modu"]),
+            "status": "ok" if rng.random() < 0.82 else "warn",
+        },
+        {
+            "name": "Yangın / Duman Sensörleri",
+            "detail": rng.choice(["Normal", "Normal", "Pil düşük: Mutfak"]),
+            "status": "ok" if rng.random() < 0.75 else "warn",
+        },
+        {
+            "name": "Akıllı Aydınlatma",
+            "detail": f"{rng.randint(1, 6)} oda açık",
+            "status": "ok",
+        },
+        {
+            "name": "Isıtma / Soğutma (HVAC)",
+            "detail": f"Hedef {round(indoor_temp + rng.uniform(-1.0, 1.0), 1)}°C",
+            "status": "ok" if rng.random() < 0.85 else "warn",
+        },
+        {
+            "name": "Su Kaçağı Sensörleri",
+            "detail": rng.choice(["Normal", "Normal", "Son kontrol: 2 dk önce"]),
+            "status": "ok",
+        },
+        {
+            "name": "Wi‑Fi / Ağ",
+            "detail": f"Sinyal {wifi_quality}%",
+            "status": "ok" if wifi_quality >= 85 else "warn",
+        },
+    ]
+
+    device_templates = [
+        ("LIGHT-LIVINGROOM", "Salon Lambası", "Salon"),
+        ("LIGHT-KITCHEN", "Mutfak Lambası", "Mutfak"),
+        ("PLUG-COFFEE", "Kahve Prizi", "Mutfak"),
+        ("LOCK-ENTRANCE", "Giriş Kilidi", "Antre"),
+        ("CAM-DOOR", "Kapı Kamerası", "Giriş"),
+        ("THERMO-SALON", "Termostat", "Salon"),
+        ("SPRINKLER", "Bahçe Sulama", "Bahçe"),
+    ]
+    rng.shuffle(device_templates)
+    devices = []
+    for dev_id, name, room in device_templates[: rng.randint(5, 7)]:
+        state_on = rng.random() < 0.55
+        watts = rng.randint(3, 140) if state_on and ("LIGHT" in dev_id or "PLUG" in dev_id) else rng.randint(0, 12)
+        devices.append({
+            "id": dev_id,
+            "name": name,
+            "room": room,
+            "state": "Açık" if state_on else "Kapalı",
+            "watts": watts,
+            "updated": (now - timedelta(minutes=rng.randint(1, 55))).strftime("%H:%M"),
+            "pill": "live" if state_on else "ghost",
+        })
+
+    return {
+        "kpis": {
+            "indoorTemp": indoor_temp,
+            "humidity": humidity,
+            "activeDevices": active_devices,
+            "energyToday": energy_today,
+        },
+        "systems": systems,
+        "devices": devices,
+        "updatedAt": now.strftime("%d.%m %H:%M"),
+    }
 
 
 @app.before_request
@@ -296,7 +543,8 @@ def home_control():
         user_data = resp.json() if resp.status_code == 200 else {}
     except Exception:
         user_data = {}
-    return render_template('home_control.html', user=_normalize_user(user_data))
+    home_dash = _generate_home_dashboard(datetime.now())
+    return render_template('home_control.html', user=_normalize_user(user_data), home_dash=home_dash)
 
 
 @app.route('/home/toggle', methods=['POST'])
@@ -341,6 +589,7 @@ def home_thermostat():
 
 @app.route('/smart-gov')
 def smart_gov():
+    now = datetime.now()
     try:
         user_resp = requests.get(f"{API_URL}/api/user", timeout=3, headers=_auth_headers())
         user_data = user_resp.json() if user_resp.status_code == 200 else {}
@@ -352,7 +601,19 @@ def smart_gov():
         user_data = {}
         bills_data = []
 
-    return render_template('smart_gov.html', bills=bills_data, user=_normalize_user(user_data))
+    if not bills_data:
+        bills_data = _generate_demo_bills(now)
+
+    decorated = _decorate_bills(bills_data, now)
+    summary = _bill_summary(decorated)
+
+    return render_template(
+        'smart_gov.html',
+        bills=decorated,
+        bill_summary=summary,
+        bills_updated_at=now.strftime("%d.%m %H:%M"),
+        user=_normalize_user(user_data),
+    )
 
 
 @app.route('/fx', methods=['GET', 'POST'])
