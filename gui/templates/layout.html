@@ -20,7 +20,7 @@
         <div class="nav-links">
           <div class="dropdown">
             <button
-              class="drop-trigger {{ 'active' if request.path == '/' or request.path.startswith('/transfer') or request.path.startswith('/cards') or request.path.startswith('/fx') or request.path.startswith('/smart-gov') or request.path.startswith('/home-control') or request.path.startswith('/settings') or request.path.startswith('/users') or request.path.startswith('/performance') or request.path.startswith('/transactions') else '' }}"
+              class="drop-trigger {{ 'active' if request.path == '/' or request.path.startswith('/transfer') or request.path.startswith('/cards') or request.path.startswith('/fx') or request.path.startswith('/users') or request.path.startswith('/transactions') else '' }}"
               type="button"
             >
               Digibank
@@ -48,17 +48,6 @@
               >
 
               <a
-                href="{{ url_for('smart_gov') }}"
-                class="{{ 'active' if request.path == '/smart-gov' else '' }}"
-                >Akıllı Devlet</a
-              >
-              <a
-                href="{{ url_for('home_control') }}"
-                class="{{ 'active' if request.path.startswith('/home-control') else '' }}"
-                >Akıllı Ev</a
-              >
-
-              <a
                 href="{{ url_for('users') }}"
                 class="{{ 'active' if request.path.startswith('/users') else '' }}"
                 >Kullanıcılar</a
@@ -68,15 +57,47 @@
                 class="{{ 'active' if request.path.startswith('/transactions') else '' }}"
                 >İşlem Kayıtları</a
               >
+            </div>
+          </div>
+
+          <div class="dropdown">
+            <button
+              class="drop-trigger {{ 'active' if request.path.startswith('/smart-gov') or request.path.startswith('/home-control') else '' }}"
+              type="button"
+            >
+              Akıllı Şehir
+            </button>
+            <div class="dropdown-menu">
               <a
-                href="{{ url_for('performance') }}"
-                class="{{ 'active' if request.path.startswith('/performance') else '' }}"
-                >Performans</a
+                href="{{ url_for('smart_gov') }}"
+                class="{{ 'active' if request.path == '/smart-gov' else '' }}"
+                >Akıllı Devlet</a
               >
+              <a
+                href="{{ url_for('home_control') }}"
+                class="{{ 'active' if request.path.startswith('/home-control') else '' }}"
+                >Akıllı Ev</a
+              >
+            </div>
+          </div>
+
+          <div class="dropdown">
+            <button
+              class="drop-trigger {{ 'active' if request.path.startswith('/settings') or request.path.startswith('/performance') else '' }}"
+              type="button"
+            >
+              Ayarlar
+            </button>
+            <div class="dropdown-menu single">
               <a
                 href="{{ url_for('settings') }}"
                 class="{{ 'active' if request.path.startswith('/settings') else '' }}"
                 >Genel Ayarlar</a
+              >
+              <a
+                href="{{ url_for('performance') }}"
+                class="{{ 'active' if request.path.startswith('/performance') else '' }}"
+                >Performans</a
               >
             </div>
           </div>
