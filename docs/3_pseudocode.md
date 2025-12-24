@@ -1,127 +1,175 @@
-# 3. Sözde Kod (Java Tabanlı Pseudocode)
+# 3. Sözde Kod (Prototip Akışları)
 
-Bu doküman, depoda yer alan Java prototipinin çekirdek akışlarını özetler.
+Bu doküman, repodaki mevcut DigiBank prototipinin çekirdek akışlarını “ne oluyor?” seviyesinde özetler.
 
-## 3.1. Kullanıcı Giriş ve Kimlik Doğrulama (TOTP + Salted Hash)
+## 3.1 Login (SHA3-512 + Salt + TOTP + Backoff)
 
-**Senaryo:** Kullanıcı, SHA3-512 + salt ile doğrulanır; TOTP ve backoff uygulanır.
+**Amaç:** `/api/login` çağrısında kullanıcıyı doğrula ve token üret.
 
-```java
-public class AuthenticationService {
-    public boolean login(User user, String password, String totp) {
-        LoginAttempt attempt = attempts.computeIfAbsent(user.getUsername(), u -> new LoginAttempt());
-        if (attempt.isLocked()) return false; // çoklu deneme kilidi
+```text
+function POST /api/login(body)
+    username = body.username
+    password = body.password
+    totp = body.totp
 
-        boolean passwordOk = verifyPassword(password, user.getSalt(), user.getPasswordHash());
-        boolean totpOk = verifyTotp(user.getTotpSecret(), totp); // demo ortamı: secret "DEMO*" ise 000000 kabul
+    if any missing -> 400
+    user = userRepository.findByUsername(username)
+    if user not found -> 401
 
-        if (passwordOk && totpOk) {
-            attempt.reset();
-            AuditLogger.getInstance().log("Kullanici giris yapti: " + user.getUsername());
-            return true;
-        }
+    ok = authenticationService.login(user, password, totp)
+    if ok == false -> 401
 
-        attempt.registerFailure();
-        Thread.sleep(attempt.backoffMillis()); // artan gecikme
-        AuditLogger.getInstance().log("Giris basarisiz: " + user.getUsername());
-        return false;
-    }
-}
+    token = randomUUID()
+    tokenStore[token] = user
+    return 200 { token }
+end
 ```
 
-## 3.2. Hibrit Ödeme Motoru (Strategy + Adapter)
+`authenticationService.login(...)` içi:
 
-**Senaryo:** Fiat ödemeleri `PaymentStrategy`, kripto ödemeleri `CryptoAdapter` ile işlenir ve `TransactionRepository` kaydı düşülür.
+```text
+function login(user, password, totp)
+    attempt = attempts[user.username]
+    if attempt.isLocked() -> false
 
-```java
-public class PaymentService {
-    public boolean processPayment(User user, BigDecimal amount, PaymentStrategy strategy) {
-        AuditLogger.getInstance().log("Odeme baslatildi: " + user.getUsername());
-        boolean success = strategy.pay(user, amount);
-        String durum = success ? "BASARILI" : "BASARISIZ";
-        repository.save(new Transaction(now(), user.getId(), "Odeme", amount, durum));
-        if (!success) AuditLogger.getInstance().log("Odeme tamamlanamadi");
-        return success;
-    }
+    passwordOk = SHA3_512(password + user.salt) == user.passwordHash (constant-time)
+    totpOk = verifyTotp(user.totpSecret, totp)
+        - DEMO secret ise "000000" kabul edilebilir
+        - zaman kayması toleransı: current/prev/next window
 
-    public boolean processCryptoPayment(User user, BigDecimal amountFiat, CryptoAdapter adapter) {
-        AuditLogger.getInstance().log("Kripto odeme: " + adapter.name());
-        boolean success = adapter.pay(user, amountFiat);
-        repository.save(new Transaction(now(), user.getId(), "Kripto-" + adapter.name(), amountFiat, success ? "BASARILI" : "BASARISIZ"));
-        return success;
-    }
-}
+    if passwordOk and totpOk
+        attempt.reset()
+        audit.log("login success")
+        return true
+
+    attempt.registerFailure()
+    sleep(attempt.backoffMillis())
+    return false
+end
 ```
 
-## 3.3. CityController Otomasyon ve Komut Kuyruğu
+## 3.2 Token ile Yetkilendirme (ApiServer.requireAuth)
 
-**Senaryo:** Günlük rutinler, sensör olayları ve komut kuyruğu tek noktadan yürütülür.
+```text
+function requireAuth(request)
+    if REQUIRE_HTTPS=true
+        if header X-Forwarded-Proto != https -> 400
 
-```java
-public class CityController {
-    public void runDailyRoutines() {
-        new LightingRoutine(infrastructureController, "Merkez Cadde").runRoutine();
-        new SecuritySweepRoutine(sensorSystem).runRoutine();
-    }
+    bearer = parse Authorization header
+    if bearer in tokenStore -> return user
 
-    public void simulateCityEvents() {
-        sensorSystem.triggerEvent("TRAFFIC_JAM", "Broadway Ave");
-        sensorSystem.triggerEvent("FIRE", "Downtown 5th St");
-        sensorSystem.triggerEvent("WATER_LEAK", "Rezidans A Blok");
-    }
+    if DEV_AUTH_TOKEN set and bearer == DEV_AUTH_TOKEN
+        return userRepository.findByUsername("admin")
 
-    public void executeQueuedCommands() { commandInvoker.runAll(); }
-
-    public void demoHomeAutomation() {
-        homeDeviceController.toggleDevice("LIGHT-LIVINGROOM", true);
-        homeDeviceController.setThermostat("Salon", 22.5);
-    }
-}
+    return 401
+end
 ```
 
-## 3.4. Sensör Olay Bildirimi (Observer Pattern)
+## 3.3 Fatura Listeleme ve Ödeme (SmartGovernment + Strategy/Adapter)
 
-**Senaryo:** `SensorSystem` olayları gözlemcilere (BankingNotificationService, EmergencyService, PublicUtilityService) yayınlar.
+**Fatura listeleme:**
 
-```java
-public class SensorSystem {
-    private List<Observer> observers = new ArrayList<>();
-
-    public void addObserver(Observer o) { observers.add(o); }
-    public void removeObserver(Observer o) { observers.remove(o); }
-
-    public void triggerEvent(String eventType, String location) {
-        AuditLogger.getInstance().log("Event: " + eventType + " loc=" + location);
-        for (Observer o : observers) { o.update(eventType, location); }
-    }
-}
-
-public class EmergencyService implements Observer {
-    public void update(String eventType, String location) {
-        if ("FIRE".equals(eventType)) dispatchTeam(location);
-    }
-}
-
-public class BankingNotificationService implements Observer {
-    public void update(String eventType, String location) {
-        // Bölgedeki kullanıcılara push
-    }
-}
+```text
+function GET /api/bills
+    requireAuth + role RESIDENT/ADMIN
+    bills = smartGovernmentService.fetchBills(mockCitizenId)
+    return 200 bills
+end
 ```
 
-## 3.5. Yönetici (Admin) İşlemleri
+**Ödeme:**
 
-**Senaryo:** Yöneticiler, `ApiServer` üzerindeki endpoint'leri kullanarak kullanıcıları ve işlemleri yönetir (`TransactionCreateHandler`, `UserItemHandler` vb.).
+```text
+function POST /api/pay(body)
+    requireAuth + role RESIDENT/ADMIN
+    billId = body.billId
+    payMode = body.payMode  // FIAT, BTC, ETH, STABLE
+    if missing billId -> 400
 
-```java
-public class UserItemHandler {
-   public void handle(Exchange t) {
-       if ("PUT".equals(t.getMethod())) {
-           // Kullanıcı rolü veya bakiyesi güncelle
-           userRepository.upsert(updatedUser);
-       } else if ("DELETE".equals(t.getMethod())) {
-           userRepository.deleteByUsername(username);
-       }
-   }
-}
+    bills = smartGov.fetchBills(mockCitizenId)
+    bill = find bills where billingId == billId
+    if not found -> 404
+
+    adapter = selectAdapter(payMode)
+    if adapter exists
+        ok = smartGov.payBillWithCrypto(user, bill, adapter)
+    else
+        ok = smartGov.payBill(user, bill)  // FiatPaymentStrategy
+
+    if ok -> 200 {durum:BASARILI}
+    else -> 402
+end
+```
+
+`PaymentService` kayıt mantığı:
+
+```text
+function processPayment(user, amount, strategy)
+    ok = strategy.pay(user, amount)
+    tx = Transaction(id=nowMillis, userId=user.id, description="Odeme", amount=amount, status=ok?BASARILI:BASARISIZ)
+    transactionRepository.save(tx)
+    return ok
+end
+
+function processCryptoPayment(user, amountFiat, adapter)
+    ok = adapter.pay(user, amountFiat)
+    tx = Transaction(id=nowMillis, userId=user.id, description="KriptoOdeme-"+adapter.name, amount=amountFiat, status=...)
+    transactionRepository.save(tx)
+    return ok
+end
+```
+
+## 3.4 Transactions CRUD (Admin) – “Manuel İşlem” Modeli
+
+```text
+function POST /api/transactions/create(body)
+    requireAuth + role ADMIN
+
+    if body contains fullName/bankCode/address/recordDate
+        validate fullName, amount, bankCode, address
+        recordDate = parse(recordDate) else today
+        tx = Transaction(fullName, amount, bankCode, address, recordDate)
+        created = transactionRepository.create(tx)
+        return 201 created
+
+    else
+        // legacy model
+        validate userId, description, amount
+        created = transactionRepository.create(Transaction(userId, description, amount, status))
+        return 201 created
+end
+```
+
+## 3.5 Export (Admin) + Directory Watcher
+
+```text
+function POST /api/export
+    requireAuth + role ADMIN
+    ensure directory "txt" exists
+    filename = "user_export_" + timestamp + ".txt"
+    write file under txt/
+    return 200 {durum:BASARILI, dosya:filename}
+end
+
+background thread DirectoryWatcherService("txt")
+    watches ENTRY_CREATE
+    on new file -> notifyObservers("NEW_FILE_DETECTED", filename)
+    EmailNotificationObserver prints "email sent" (simulation)
+end
+```
+
+## 3.6 GUI (Flask) Akışı (Özet)
+
+```text
+GET /login -> form
+POST /login -> calls POST {API_URL}/api/login -> stores token in session
+
+GET /smart-gov -> GET /api/bills -> POST /api/pay
+GET /users -> GET /api/users or /api/users/search
+POST /users -> POST/PUT/DELETE against /api/users/*
+GET /transactions -> GET /api/transactions or /api/transactions/search
+POST /transactions -> POST/PUT/DELETE against /api/transactions/*
+
+POST /transactions/email -> build XLSX/PDF -> SMTP send to Mailpit
+end
 ```

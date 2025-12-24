@@ -2,68 +2,37 @@
 config:
   theme: neutral
 ---
+
 erDiagram
 
-    %% Kullanıcı (In-Memory Prototype Model)
+    %% NOT:
+    %% - Bu şema, docker-compose ile ayağa kalkan PostgreSQL (opsiyonel) tablolarını gösterir.
+    %% - Smart city / sensor bileşenleri DB'ye yazmaz; olaylar demo/console ve AuditLogger ile takip edilir.
+    %% - DB kapalıysa repository'ler in-memory + dosya fallback davranışı gösterebilir.
+
     USERS {
-        bigint id PK
-        string username
-        string password_hash
-        string totp_secret
-        string role "ADMIN, RESIDENT"
-        decimal fiat_balance
-        decimal crypto_balance
+        bigint id PK "BIGSERIAL"
+        string username "UNIQUE, NOT NULL"
+        string password_hash "NOT NULL"
+        string salt "NOT NULL"
+        string totp_secret "NOT NULL"
+        string role "RESIDENT | ADMIN | CONTROLLER"
+        decimal fiat_balance "NUMERIC"
+        decimal crypto_balance "NUMERIC"
+        string pq_public_key
     }
 
-    %% Bankacılık Modülü
     TRANSACTIONS {
-        bigint id PK
+        bigint id PK "BIGSERIAL"
         bigint user_id FK
         string description
+        decimal amount "NUMERIC"
+        string status "BASARILI | BASARISIZ | PENDING (demo)"
+        datetime created_at
+        string full_name
         string bank_code
         string address
-        decimal amount
-        datetime record_date
-        string status "BASARILI, BASARISIZ"
+        date record_date
     }
 
-    USERS ||--o{ TRANSACTIONS : "initiates"
-
-    %% Akıllı Şehir Modülü
-    SENSORS {
-        bigint id PK
-        string type "TRAFFIC, LIGHT, SMOKE"
-        string location_code
-        string status "ACTIVE, MAINTENANCE"
-        decimal last_value
-    }
-
-    SENSOR_EVENTS {
-        bigint id PK
-        bigint sensor_id FK
-        datetime timestamp
-        string event_type
-        decimal value
-        string severity "INFO, WARNING, CRITICAL"
-    }
-
-    CITY_ROUTINES {
-        int id PK
-        string name
-        string trigger_condition
-        string action_command
-    }
-
-    SENSORS ||--o{ SENSOR_EVENTS : "generates"
-    
-    %% Audit ve Loglama
-    AUDIT_LOGS {
-        bigint id PK
-        bigint user_id FK
-        string action
-        string entity_affected
-        datetime timestamp
-        string ip_address
-    }
-
-    USERS ||--o{ AUDIT_LOGS : "performs"
+    USERS ||--o{ TRANSACTIONS : "has"

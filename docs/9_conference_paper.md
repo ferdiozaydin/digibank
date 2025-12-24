@@ -1,80 +1,69 @@
 # 9. Conference/Journal Report (Task 2.B)
 
-**Title: DigiBank Integrated Smart City Automation System: A Java Prototype with Secure Payments and IoT Automation**
+**Title:** DigiBank Integrated Smart-City Automation: A Java + Flask Prototype with MFA, Hybrid Payments, and Operational Tooling
 
-**Abstract**
-This paper documents a Java-based prototype that integrates DigiBank’s digital banking flows with Smart City automation. The system exposes REST endpoints via an embedded HttpServer, enforces SHA3-512 + salt password hashing with TOTP-based MFA, executes fiat and simulated crypto payments through Strategy/Adapter patterns, and routes sensor events to city services through an Observer/Command pipeline. We outline the implemented architecture, design patterns, security mechanisms, and operational workflows aligned with the repository’s source code.
+## Abstract
 
----
+This paper presents a runnable prototype that couples digital banking flows with smart-city automation. A Java 17 backend exposes REST endpoints through an embedded `HttpServer` and enforces SHA3-512 + salt password hashing combined with TOTP-based MFA. Payment execution is modularized with Strategy and Adapter patterns to support fiat and simulated crypto rails (BTC/ETH/Stablecoin). A Flask-based GUI consumes the API, provides admin CRUD screens for users/transactions, and demonstrates reporting features including XLSX/PDF generation and SMTP delivery via a local mail catcher (Mailpit). Data can be persisted to PostgreSQL when enabled through environment variables; otherwise repositories fall back to in-memory storage and file logging.
 
-## **I. INTRODUCTION**
+## I. Introduction
 
-Smart City services need reliable, low-latency payments and responsive event handling. The presented prototype couples DigiBank payments with city automation using a single Java runtime: ApiServer handles HTTP, AuthenticationService validates credentials and TOTP codes, PaymentService executes fiat and crypto payments, and SensorSystem broadcasts incidents to emergency and utility observers. The goal is a demonstrable, auditable flow that mirrors production concerns on a simplified codebase.
+Smart-city services require payments, auditing, and event-driven automation under a unified operational surface. The prototype integrates these concerns in a compact, educational codebase: authentication and authorization, billing and transfers, admin management screens, and automation routines with design-pattern-based separation.
 
----
+## II. System Design
 
-## **II. SYSTEM DESIGN**
+### A. Runtime Components (as implemented)
 
-### **A. Core Components (implemented)**
+1. **Java Backend (ApiServer)**: Embedded HTTP server exposing `/api/*` endpoints (login, user, bills/pay, transfers, home automation, metrics/forecast, export, admin CRUD).
+2. **AuthenticationService**: SHA3-512 + per-user salt, constant-time comparison, TOTP verification with skew tolerance, and backoff/temporary lock.
+3. **PaymentService**: Strategy pattern for FIAT (`FiatPaymentStrategy`, `CryptoPaymentStrategy`) and Adapter pattern for crypto-bill flows (`BtcAdapter`, `EthAdapter`, `StablecoinAdapter`), logging each operation into `TransactionRepository`.
+4. **SmartGovernmentService**: Produces mock government bills and delegates payment execution to PaymentService.
+5. **Automation Pipeline**: `CityController` runs routine templates; `SensorSystem` publishes events to observers; `CommandInvoker` executes queued commands (infrastructure and home devices).
+6. **Flask GUI (frontend-gui)**: Web UI calling the backend; includes admin screens, export triggers, transaction downloads (XLSX/PDF), and SMTP e-mailing via Mailpit.
+7. **PostgreSQL (optional persistence)**: Enabled in Docker Compose; used by `UserRepository` and `TransactionRepository` when `DB_URL/DB_USER/DB_PASS` are provided.
+8. **Mailpit**: Local SMTP sink + web UI to inspect outbound mails sent by the GUI.
 
-1. **ApiServer**: Embedded HttpServer exposing `/api/login`, `/api/bills`, `/api/pay`, `/api/metrics`, `/api/forecast`, `/api/home/*`, `/api/export`, and admin endpoints (`/api/users/*`, `/api/transactions/*`).
-2. **AuthenticationService**: SHA3-512 + per-user salt, TOTP verification (with clock skew tolerance) and temporary lock/backoff after failed attempts.
-3. **PaymentService**: Strategy pattern for fiat (FiatPaymentStrategy) and Adapter pattern for crypto (BtcAdapter, EthAdapter, StablecoinAdapter), persisting results to TransactionRepository with AuditLogger traces.
-4. **SmartGovernmentService**: Retrieves sample bills and delegates to PaymentService (fiat or crypto) to mark bills as paid.
-5. **CityController + SensorSystem + CommandInvoker**: Runs daily routines (LightingRoutine, SecuritySweepRoutine), simulates traffic/fire/water-leak events, and executes queued commands for infrastructure and home devices.
-6. **PredictiveAnalyticsService**: Generates demo metrics and traffic/energy forecasts for admin endpoints.
-7. **HomeDeviceController / InfrastructureController**: Toggle home devices, set thermostats, and adjust street/traffic lights.
+### B. Key Interaction Flows
 
-### **B. Interaction Flow (implemented)**
+1. **Login**: GUI → `POST /api/login` → token returned → GUI session stores token.
+2. **Bill Payment**: GUI → `GET /api/bills` → `POST /api/pay` with `payMode=FIAT|BTC|ETH|STABLE` → transaction recorded.
+3. **Admin Management**: GUI → `/api/users*` and `/api/transactions*` endpoints to create/update/delete/search.
+4. **Reporting**: Backend export writes to `txt/`; GUI creates XLSX/PDF and can email them via SMTP (Mailpit).
 
-1. Resident/Admin calls `/api/login` with username/password/TOTP. AuthenticationService validates hash + TOTP; on success a random bearer token is issued.
-2. Resident fetches bills (`/api/bills`) and pays via `/api/pay` choosing FIAT/BTC/ETH/STABLE. SmartGovernmentService invokes PaymentService, which applies the chosen strategy/adapter and records a Transaction.
-3. Admin triggers `/api/export` to write a TXT export; DirectoryWatcherService can notify via EmailNotificationObserver.
-4. CityController simulates sensor events; SensorSystem notifies EmergencyService, PublicUtilityService, and BankingNotificationService; CommandInvoker drains queued infrastructure/home commands.
+## III. Design Patterns
 
----
+1. **Strategy**: Payment processing policy is swappable (fiat vs crypto balance strategy).
+2. **Adapter**: Crypto “rails” for bill payments are abstracted as adapters (BTC/ETH/STABLE simulation).
+3. **Observer**: Sensor and file-watcher events are distributed to observers.
+4. **Command**: Infrastructure/home actions are queued and executed in order.
+5. **Template Method**: Daily routines share a common skeleton with overridable steps.
+6. **Singleton**: Central audit logger.
 
-## **III. DESIGN PATTERNS (as coded)**
+## IV. Deployment & Data
 
-1. **Strategy**: Fiat vs. crypto payment logic (PaymentStrategy, FiatPaymentStrategy, CryptoPaymentStrategy).
-2. **Adapter**: Network-specific crypto flows (CryptoAdapter → BTC/ETH/Stablecoin implementations).
-3. **Observer**: SensorSystem broadcasting events to emergency, utility, and banking notification observers.
-4. **Command**: Queued infrastructure/home actions (TurnOnStreetLightCommand, AdjustTrafficSignalCommand, ToggleHomeDeviceCommand) executed by CommandInvoker.
-5. **Template Method**: DailyRoutineTemplate defines routine skeleton; LightingRoutine and SecuritySweepRoutine override steps.
-6. **Singleton**: AuditLogger provides centralized audit logging.
+The recommended run mode is Docker Compose with four services: backend, GUI, PostgreSQL, and Mailpit. Persistence is **conditional**: repositories write to PostgreSQL when available, otherwise use in-memory lists/caches and file append logs. Token storage is in-memory.
 
----
+## V. Security
 
-## **IV. DEPLOYMENT & DATA**
+Implemented security mechanisms are intentionally “prototype-grade”:
 
-The prototype is packaged with Docker for local runs. Persistence is in-memory repositories plus TXT exports for audit/user lists; no external DB is required in the current build. The API and automation services share the same JVM for simplicity.
+- SHA3-512 + salt password hashing
+- TOTP verification with window tolerance (demo bypass for DEMO secrets)
+- Backoff and temporary account lock after repeated failures
+- Role-based authorization for admin endpoints
+- Optional HTTPS enforcement behind reverse proxies (`REQUIRE_HTTPS` via `X-Forwarded-Proto`)
 
----
+## VI. Results
 
-## **V. SECURITY (implemented)**
+The system demonstrates end-to-end operations: MFA login, bill retrieval and payment with multiple rails, admin CRUD operations, transaction exports, and GUI-based reporting and email delivery through a local SMTP sink.
 
-1. **Password hashing**: SHA3-512 with per-user salt; constant-time comparison.
-2. **MFA**: TOTP with previous/next window tolerance; demo bypass only when secret starts with DEMO and code 000000.
-3. **Account protection**: Failure counter with temporary lock and exponential backoff.
-4. **Auditability**: AuditLogger writes all auth and payment attempts; TXT export includes admin context.
+## VII. Future Work
 
----
+1. Replace demo token store with expiring tokens and refresh mechanisms.
+2. Persist audit logs and add correlation IDs across requests.
+3. Introduce rate limiting and strict TLS termination.
+4. Evolve smart-city events to a message-bus architecture and add anomaly detection.
 
-## **VI. RESULTS (prototype scope)**
+## VIII. Conclusion
 
-The system successfully exercises end-to-end flows: MFA login, bill retrieval, fiat and simulated crypto payments, command execution for city/home devices, and observer-based alerting. Metrik ve tahmin uçları örnek veri üretir; kalıcılık ve oranlar demo seviyesindedir.
-
----
-
-## **VII. FUTURE WORK**
-
-1. Replace crypto rate constants with live feeds and persist balances/transactions to a real datastore.
-2. Harden MFA (remove demo bypass), add rate limiting and TLS termination.
-3. Split monolith into deployable services (Auth, Payments, IoT) with message queue integration for notifications.
-4. Add ML-based anomaly detection on SensorSystem events and payment patterns.
-
----
-
-## **VIII. CONCLUSION**
-
-The Java prototype operationalizes secure payments, city automation, and observability in a single codebase using well-known design patterns. It provides a runnable baseline for future decomposition into microservices, stronger crypto primitives, and production-grade data persistence.
+The prototype provides a compact, runnable baseline showcasing secure authentication, modular payment design, and operational tooling in a smart-city banking context. It is suited for education and as a foundation for production-hardening steps.

@@ -1,77 +1,68 @@
-Projede yapman gerekenleri özet adım listesi şöyle:
+## DigiBank – Çalıştırma ve Demo Adımları (Repo ile uyumlu)
 
-1. **Gereksinim Analizi**
-   * DigiBank dijital bankacılık sistemi için 1–2 paragraf sistem gereksinimi yaz.
+Bu doküman, repodaki mevcut implementasyona göre sistemi ayağa kaldırma ve ana senaryoları demo etme adımlarını özetler.
 
-2. **UML Diyagramları**
+### 1) Mimariyi Kısaca Anla
 
-   * Smart city + DigiBank için UML Sınıf/Sistem diyagramı çiz.
-   * Ayrı olarak detaylı **Use Case** diyagramı çiz (Resident, CityController, BankingService vb. aktörler).
+- **Backend (Java 17)**: Gömülü `HttpServer` üzerinde REST API (`/api/*`).
+- **GUI (Flask / Python)**: Web arayüz; Java API’ye `requests` ile bağlanır.
+- **DB (PostgreSQL)**: `docker-compose.yml` ile ayağa kalkar; backend `DB_URL/DB_USER/DB_PASS` verilirse `users` ve `transactions` tablolarını kullanır. Bağlantı yoksa bellek/cache + dosya fallback devreye girer.
+- **Mailpit**: GUI’nin “transactions email” akışı SMTP ile mailpit’e yollar; web arayüzü üzerinden görüntülenir.
+- **txt/**: Backend `/api/export` çıktısını buraya yazar; ayrıca backend içinde `DirectoryWatcherService` bu klasörü izler (Java tarafında e-posta gönderimi **konsola simüle edilir**).
 
-3. **Sözde Kod (Pseudocode)**
+### 2) Docker ile Hızlı Başlatma (Önerilen)
 
-   * Temel akışlar için sözde kod yaz:
+1. Proje kök dizininde:
 
-     * Örnek: “kullanıcı giriş yapar → bakiye görüntüle → ödeme yap → sonuç bildirimi gönder”
+```bash
+docker compose up --build
+```
 
-4. **GUI Tasarımı (Mock-up)**
+2. Servisler:
 
-   * Kullanıcıların giriş yapacağı, bakiye göreceği, ödeme yapacağı ekranları çiz (Figma, Draw.io vb.).
-   * Yöneticiler için basit bir dashboard taslağı ekle (ışıklar, trafik, alarmlar).
+- GUI: `http://localhost:8000`
+- Backend API: `http://localhost:8080`
+- Mailpit UI: `http://localhost:8025`
+- Postgres: `localhost:5432` (opsiyonel olarak dış araçla bağlanılabilir)
 
-5. **Hibrit Bulut Dağıtımı**
+### 3) Giriş Bilgileri (Demo)
 
-   * DigiBank Alpha hibrit-cloud paketini bir public cloud ortamına kur.
-   * Karşılaştığın risk ve gereksinimleri not al (raporda kullanacaksın).
+- Varsayılan kullanıcı: `admin`
+- Varsayılan şifre: `admin`
+- Varsayılan TOTP: `000000`
 
-6. **JAVA ile Temel Uygulama**
+Notlar:
 
-   * Eclipse kur.
-   * Aşağıdakileri içeren basit bir prototip yaz (tercihen JAVA):
+- Backend tarafında admin kullanıcısı başlangıçta oluşturulur ve TOTP “DEMO\*” secret ile `000000` kabul edilir.
+- GUI login ekranında da varsayılanlar aynı olacak şekilde tanımlıdır.
 
-     * Kullanıcı sınıfları, hesap/işlem sınıfları
-     * BankingService, CityController vb.
-     * Önerilen pattern’lerden en az birkaçını kullan (Singleton, Command, Observer, Adapter, Template Method).
+### 4) Demo Senaryoları (GUI üzerinden)
 
-7. **Smart-Government Entegrasyonu**
+1. **Dashboard**: Kullanıcı bilgisi + metrik snapshot (backend açıksa canlı, değilse demo değerler).
+2. **Smart Government**: `/api/bills` ile fatura listele, `/api/pay` ile FIAT/BTC/ETH/STABLE ödeme dene.
+3. **Transfer**: `/api/transfer` çağrısı ile transfer işlemi kaydı oluştur.
+4. **Home Control**: `/api/home/toggle` ve `/api/home/thermostat` ile ev cihazı/termostat aksiyonları.
+5. **Users (Admin)**: `/api/users`, `/api/users/register`, `/api/users/item`, `/api/users/search`.
+6. **Transactions (Admin)**: `/api/transactions`, `/api/transactions/create`, `/api/transactions/item`, `/api/transactions/search`.
+7. **Export (Admin)**: GUI’den export tetikle; backend `txt/` içine `user_export_YYYYMMDD_HHMMSS.txt` yazar.
+8. **Transactions Download/Email (GUI)**: GUI tarafında XLSX/PDF üretip indirebilir veya SMTP ile mailpit’e gönderebilirsin.
 
-   * Smart-government tarafını (ör: vergi ödeme, e-devlet işlemi, fatura ödeme) DigiBank ile etkileşime sokan sınıflar/ekranlar ekle.
-   * Bunu kodda ve GUI’de göster.
+### 5) API’yi Hızlı Doğrulama (İsteğe Bağlı)
 
-8. **Araştırma Özeti (Task 2.A)**
+1. Token al:
 
-   * Nesne yönelimli tasarım özellikleri ve olası araştırma konuları için **1 paragraf** kısa özet yaz.
+```bash
+curl -s -X POST http://localhost:8080/api/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin","totp":"000000"}'
+```
 
-9. **Konferans/Jurnal Raporu (Task 2.B)**
+2. Token ile kullanıcıyı çek:
 
-   * IEEE konferans şablonunda birkaç sayfalık teknik makale hazırla:
+```bash
+curl -s http://localhost:8080/api/user -H 'Authorization: Bearer <TOKEN>'
+```
 
-     * Giriş, Sistem Tasarımı, Tasarım Kalıpları, Hibrit Bulut, Güvenlik, Sonuçlar, Gelecek Çalışmalar.
+### 6) Dosya İzleme (Bonus)
 
-10. **Ekran Görüntüleri**
-
-    * UML, GUI mock-up, çalışan uygulama ve çıktı ekranlarının hepsinin screenshot’larını al.
-
-11. **Tam Rapor**
-
-    * Tüm kısımları (analiz, diyagramlar, kod açıklaması, test sonuçları, ekran görüntüleri, makale) tek bir raporda topla (PDF).
-
-12. **Zip Dosyası**
-
-    * Tek bir zip hazırla:
-
-      * Kaynak kod
-      * UML diyagramları
-      * Pseudocode
-      * Ekran görüntüleri
-      * “Karmaşıklık kaynakları ve modüler çözüm” notların
-    * İsim: `studentID_fullName.zip`
-
-13. **Bonus için (İsteğe bağlı)**
-
-    * DigiBank uygulamasını çalıştır.
-    * Bugünün timestamp’li bir txt export et.
-    * Birkaç kullanıcı kaydet.
-    * Observer pattern ile `./txt` klasörünü izleyip, yeni txt oluşunca kendine mail atılmasını sağla (veya simüle et).
-    * Uygulama, txt ve e-posta zaman damgalı ekran görüntülerini al.
-
+- Backend çalışırken `txt/` klasörüne yeni bir dosya oluşursa, Java tarafındaki `DirectoryWatcherService` bunu yakalar ve `EmailNotificationObserver` üzerinden **konsola e-posta gönderimi simülasyonu** basar.

@@ -2,68 +2,69 @@
 config:
   theme: neutral
 ---
+
 graph TD
-    subgraph "DigiBank & SmartCity Project Structure"
-        Root["/digibank-root"]
-        
-        subgraph "src (Java Backend)"
-            MainApp["com.digibank.Main"]
-            
-            subgraph "com.digibank.api"
-                ApiSrv["ApiServer.java (HttpServer)"]
-                Handlers["Handlers (Login, Bill, Pay, Admin...)"]
-            end
-            
-            subgraph "com.digibank.service"
-                AuthSvc["AuthenticationService"]
-                PaySvc["PaymentService"]
-                CitySvc["CityController"]
-                SensorSvc["SensorSystem"]
-                Repos["TxRepository / UserRepository"]
-            end
-            
-            subgraph "com.digibank.patterns"
-                Cmd["command/ (Command Pattern)"]
-                Obs["observer/ (Observer Pattern)"]
-                Strat["strategy/ (Strategy Pattern)"]
-                Adpt["adapter/ (Adapter Pattern)"]
-                Sing["singleton/ (AuditLogger)"]
-            end
-            
-            subgraph "com.digibank.model"
-                UserClass["User"]
-                TxClass["Transaction"]
-                BillClass["GovernmentBill"]
-            end
-        end
+  Root["digibank/"]
 
-        subgraph "gui (Python Frontend)"
-            AppPy["app.py (Flask)"]
-            Tmpl["templates/ (HTML)"]
-            Static["static/ (CSS/JS)"]
-        end
-        
-        subgraph "docs & output"
-             Docs["docs/ (.md, .mmd)"]
-             Txt["txt/ (Exports)"]
-             Dk["Dockerfile"]
-        end
+  Root --> Compose["docker-compose.yml"]
+  Root --> DockerfileRoot["Dockerfile (Java backend build)"]
+  Root --> Readme["README.md"]
+  Root --> Docs["docs/"]
+  Root --> Txt["txt/ (export çıktıları - bind mount)"]
 
-    end
+  Root --> Gui["gui/ (Flask GUI)"]
+  Gui --> GuiApp["app.py"]
+  Gui --> GuiTemplates["templates/"]
+  Gui --> GuiStatic["static/"]
+  Gui --> GuiDockerfile["gui/Dockerfile"]
+  Gui --> GuiReq["gui/requirements.txt"]
 
-    Root --> src
-    Root --> gui
-    Root --> docs
-    
-    src --> MainApp
-    MainApp --> ApiSrv
-    MainApp --> CitySvc
-    
-    ApiSrv --> Handlers
-    Handlers --> AuthSvc
-    Handlers --> PaySvc
-    
-    PaySvc --> Strat
-    PaySvc --> Adpt
-    CitySvc --> Cmd
-    CitySvc --> Obs
+  Root --> Src["src/"]
+  Src --> JavaRoot["com/digibank/"]
+
+  JavaRoot --> Main["Main.java"]
+  JavaRoot --> ApiPkg["api/"]
+  ApiPkg --> ApiServer["ApiServer.java"]
+
+  JavaRoot --> ServicePkg["service/"]
+  ServicePkg --> AuthSvc["AuthenticationService.java"]
+  ServicePkg --> UserRepo["UserRepository.java (DB+cache)"]
+  ServicePkg --> TxRepo["TransactionRepository.java (DB+file fallback)"]
+  ServicePkg --> PaySvc["PaymentService.java"]
+  ServicePkg --> Predict["PredictiveAnalyticsService.java"]
+  ServicePkg --> Home["HomeDeviceController.java"]
+  ServicePkg --> Infra["InfrastructureController.java"]
+  ServicePkg --> City["CityController.java"]
+
+  JavaRoot --> IntegrationPkg["integration/"]
+  IntegrationPkg --> SmartGov["SmartGovernmentService.java"]
+
+  JavaRoot --> ModelPkg["model/"]
+  ModelPkg --> UserModel["User.java"]
+  ModelPkg --> TxModel["Transaction.java"]
+  ModelPkg --> GovPkg["gov/"]
+  GovPkg --> GovBill["GovernmentBill.java"]
+
+  JavaRoot --> Patterns["patterns/"]
+  Patterns --> Adapter["adapter/"]
+  Patterns --> Strategy["strategy/"]
+  Patterns --> Observer["observer/"]
+  Patterns --> Command["command/"]
+  Patterns --> Template["template/"]
+  Patterns --> Singleton["singleton/"]
+
+  Main --> ApiServer
+  Main --> City
+  ApiServer --> AuthSvc
+  ApiServer --> UserRepo
+  ApiServer --> TxRepo
+  ApiServer --> PaySvc
+  ApiServer --> SmartGov
+  ApiServer --> Predict
+  ApiServer --> Home
+
+  PaySvc --> Strategy
+  PaySvc --> Adapter
+  City --> Command
+  City --> Observer
+  City --> Template

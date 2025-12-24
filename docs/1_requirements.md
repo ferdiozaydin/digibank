@@ -1,109 +1,125 @@
-# 1. Gereksinim Analizi
+# 1. Gereksinim Analizi (Uygulama ile birebir uyumlu)
 
-Sistem; şehir sakinlerinin park ücreti, toplu taşıma bileti, fatura ve benzeri şehir hizmetlerini hem **geleneksel para birimi** (fiat) hem de **kripto para (BTC/ETH/Stablecoin simülasyonu)** ile ödeyebilmesini sağlamalıdır. Kullanıcılar tek bir arayüz üzerinden MFA ile güvenli giriş yapabilmeli, fatura listesini görebilmeli, ödeme başlatabilmeli ve her işlem sonrası izlenebilirlik sağlayan kayıtlar üretilmelidir. CityController ve sensör akışı, otomasyon senaryoları sonucu oluşan olayları ve ücretlendirmeleri (örneğin trafik ışığı ayarı, güvenlik uyarısı) bankacılık/şehir servislerine iletmelidir.
+Bu doküman, repodaki mevcut prototipin **gerçekte sunduğu** özellikleri ve sınırlarını tanımlar. Amaç; gereksinimlerin, kod (Java backend + Flask GUI) ve dağıtım (Docker Compose) ile tutarlı olmasıdır.
 
-Teknik açıdan DigiBank prototipi **tek JVM içinde gömülü HttpServer** olarak çalışır; kullanıcı ve işlem verileri bellek içi repository’lerde tutulur, TXT ihracat ile dışa aktarılır. Sistem; SHA3-512 + salt parola saklama, TOTP tabanlı MFA, basit bearer token üretimi, AuditLogger ile iz kaydı ve Observer/Command/Strategy/Adapter tasarım kalıplarıyla güçlendirilmiştir. Gerçek banka veya zincir entegrasyonu yoktur; kripto ödemeler adapterlar ile simüle edilir. Dağıtım için tek konteyner (Dockerfile) öngörülür; TLS, oran sınırlama ve kalıcı veritabanı üretim adımında eklenecek konulardır.
+## 1.1 Kapsam ve Paydaşlar
 
-## **Fonksiyonel Gereksinimler (Functional Requirements)**
+**Kapsam:**
 
-### **FR-01 Güvenli Kullanıcı Girişi (MFA)**
+- Java 17 tabanlı gömülü HTTP API (`/api/*`) ile bankacılık + smart-city demo akışları
+- Flask tabanlı GUI (`/`, `/smart-gov`, `/users`, `/transactions`, vb.)
+- Docker Compose ile çalıştırma: `backend-java`, `frontend-gui`, `db (PostgreSQL)`, `mailpit`
 
-Kullanıcılar SHA3-512 + salt ile saklanan parola ve TOTP kodu ile giriş yapmalı; başarısız denemelerde kademeli bekleme ve geçici kilit uygulanmalıdır. Başarılı giriş sonrası bearer token üretilmelidir.
+**Aktörler:**
 
-### **FR-02 Fatura Görüntüleme ve Ödeme (Fiat/Kripto Simülasyonu)**
+- **Resident**: API üzerinden / GUI üzerinden ödeme, transfer, home-control
+- **Admin**: Kullanıcı/işlem yönetimi, metrik/tahmin görüntüleme, export
+- **Smart Government (Simülasyon)**: Fatura üretimi (mock)
+- **Mail system (Mailpit)**: GUI’nin SMTP ile e-posta göndermesi
 
-Kullanıcılar `/api/bills` ile faturaları görüp `/api/pay` ile FIAT veya BTC/ETH/Stablecoin seçenekleriyle ödeme yapabilmelidir; sonuçlar TransactionRepository ve AuditLogger’a yazılmalıdır.
+## 1.2 Fonksiyonel Gereksinimler
 
-### **FR-03 Şehir Otomasyon Rutinleri ve Komutları**
+### FR-01 Kimlik Doğrulama (Parola + TOTP + Backoff)
 
-CityController günlük rutinleri (LightingRoutine, SecuritySweepRoutine) çalıştırmalı, komut kuyruğunda trafik/aydınlatma/ev cihazı komutlarını CommandInvoker ile işletebilmelidir.
+- Backend `/api/login` uç noktası ile `username/password/totp` doğrulanır.
+- Parola, `SHA3-512 + per-user salt` ile saklanır; karşılaştırma sabit-zamanlıdır.
+- TOTP doğrulaması vardır; **DEMO secret** için `000000` kabul edilebilir.
+- Başarısız denemelerde artan gecikme ve kısa süreli kilitleme uygulanır.
 
-### **FR-04 Sensör Olay Yönetimi ve Bildirim**
+### FR-02 Token Tabanlı Yetkilendirme ve Rol Kontrolü
 
-SensorSystem trafik/güvenlik/yangın olaylarını üretmeli, EmergencyService/PublicUtilityService/BankingNotificationService gözlemcilerine iletmeli ve gerekli aksiyonları tetiklemelidir.
+- Başarılı login sonrası bearer token üretilir ve isteklerde `Authorization: Bearer <token>` ile taşınır.
+- Rol kontrolü uygulanır:
+  - **ADMIN**: `/api/users*`, `/api/transactions*` üzerinde CRUD; `/api/export`, `/api/metrics`, `/api/forecast`
+  - **RESIDENT/ADMIN**: `/api/user`, `/api/bills`, `/api/pay`, `/api/transfer`, `/api/home/*`
 
-### **FR-05 Audit ve İhracat**
+### FR-03 Kullanıcı Görüntüleme
 
-Tüm kimlik doğrulama ve ödeme işlemleri AuditLogger ile kaydedilmeli; `/api/export` ile kullanıcı/işlem listesi TXT olarak dışa aktarılmalıdır.
+- `/api/user` ile oturumdaki kullanıcının temel bilgisi ve bakiyeleri döner.
 
-### **FR-06 Yönetici Gözlemi**
+### FR-04 Smart Government Fatura Listeleme
 
-Yönetici `/api/metrics` ve `/api/forecast` uçlarıyla örnek metrik ve tahmin verilerini alabilmelidir.
+- `/api/bills` ile mock/simülasyon faturalar listelenir.
+- Faturalar `billingId/type/amount/date/isPaid` alanlarını taşır.
 
----
+### FR-05 Ödeme (FIAT veya Kripto Adapter)
 
-### FR-07 Yönetici Paneli (Admin Dashboard)
+- `/api/pay` ile fatura ödemesi yapılır.
+- `payMode` alanı `FIAT|BTC|ETH|STABLE` değerlerini destekler.
+- FIAT için `FiatPaymentStrategy`; kripto için `BtcAdapter/EthAdapter/StablecoinAdapter` kullanılır.
+- Sonuç `TransactionRepository`’ye transaction kaydı olarak işlenir.
 
-Yöneticiler `/api/users` ve `/api/transactions` uçları üzerinden tüm kullanıcı ve işlemleri listeleyebilmeli, arama yapabilmeli (`/search`), yeni kayıt oluşturabilmeli (Register/Create) ve mevcut kayıtları düzenleyip silebilir (`/item`). Ayrıca `/api/transfer` ile yöneticiler (veya kullanıcılar) doğrudan para transferi yapabilmelidir.
+### FR-06 Transfer Kaydı
 
----
+- `/api/transfer` ile transfer işlemi kaydı oluşturulur (tutar negatif kaydedilir).
 
-## **Fonksiyonel Olmayan Gereksinimler (Non-Functional Requirements)**
+### FR-07 Kullanıcı Yönetimi (Admin)
 
-### **NFR-01 Dağıtım ve Çalıştırma**
+- Liste: `/api/users` (GET)
+- Arama: `/api/users/search?q=` (GET)
+- Ekleme: `/api/users/register` (POST)
+- Tekil işlem: `/api/users/item?username=` (GET/PUT/DELETE)
 
-Sistem tek JVM içinde gömülü HttpServer ile çalışmalı; Docker konteynerında ek bağımlılık olmadan ayağa kalkabilmelidir.
+### FR-08 İşlem Yönetimi (Admin + Kısmi Resident Görünürlüğü)
 
-### **NFR-02 Veri Saklama**
+- Liste: `/api/transactions` (GET)
+  - ADMIN: tüm işlemler
+  - RESIDENT: sadece kendi işlemleri
+- Arama: `/api/transactions/search?q=` (GET) aynı rol mantığı
+- Ekleme: `/api/transactions/create` (POST) yalnız ADMIN
+  - Yeni “manuel işlem” modeli: `fullName, amount, bankCode, address, recordDate`
+  - Eski model (geri uyumluluk): `userId, description, amount, status`
+- Tekil işlem: `/api/transactions/item?id=` (GET/PUT/DELETE)
+  - PUT/DELETE yalnız ADMIN
 
-Veri bellek içi repository’lerde tutulur; kalıcılık gereksinimi TXT ihracat ile karşılanır. Harici veritabanı veya mesaj kuyruğu yoktur.
+### FR-09 Export (Admin)
 
-### **NFR-03 Performans (Demo)**
+- `/api/export` ile `txt/` altına `user_export_YYYYMMDD_HHmmss.txt` yazılır.
+- Not: Export içeriği demo amaçlıdır; bazı satırlar sabit örnek veri içerebilir.
 
-Demo koşullarında düşük gecikme (<300ms hedef) beklenir; yük testi ve yatay ölçekleme kapsam dışıdır.
+### FR-10 Metrikler ve Tahmin (Admin)
 
-### **NFR-04 Modüler Mimari ve Kalıplar**
+- `/api/metrics` ile demo metrik snapshot
+- `/api/forecast?type=traffic|energy` ile demo tahmin çıktısı
 
-Kod tabanı Strategy, Adapter, Observer, Command, Template Method ve Singleton kalıplarını kullanarak genişletilebilirlik sağlar.
+### FR-11 Home Automation (Resident/Admin)
 
----
+- `/api/home/toggle` ile cihaz aç/kapat
+- `/api/home/thermostat` ile termostat hedef sıcaklık ayarı
 
-## **4.3 Güvenlik Gereksinimleri (Security Requirements)**
+### FR-12 GUI (Flask) Fonksiyonları
 
-### **SEC-01 Parola Saklama ve Doğrulama**
+GUI; backend API’yi çağırarak aşağıdaki ekranları sağlar:
 
-Parolalar SHA3-512 + kullanıcıya özgü salt ile saklanmalı, sabit zamanlı karşılaştırma yapılmalıdır.
+- Login (`/login`) → backend `/api/login`
+- Dashboard (`/`) → `/api/user`, `/api/metrics`
+- Smart Government (`/smart-gov`) → `/api/bills`, `/api/pay`
+- Transfer (`/transfer`) → `/api/transfer`
+- Users (`/users`) → `/api/users*`
+- Transactions (`/transactions`) → `/api/transactions*`
+- Transactions çıktıları: XLSX/PDF indirme ve SMTP ile e-posta (Mailpit)
 
-### **SEC-02 TOTP Çok Faktörlü Doğrulama**
+## 1.3 Veri ve Kalıcılık
 
-Girişlerde TOTP doğrulaması uygulanmalı; demo modunda yalnızca "DEMO" gizli anahtar + 000000 koduna izin verilmelidir.
+**PostgreSQL aktifse** (Docker Compose ile varsayılan):
 
-### **SEC-03 Hesap Koruması**
+- `users` ve `transactions` tabloları oluşturulur ve kullanılır.
 
-Başarısız girişlerde kademeli bekleme ve geçici kilitleme uygulanmalıdır.
+**DB yoksa/fail ederse**:
 
----
+- `UserRepository`: cache (in-memory)
+- `TransactionRepository`: in-memory store + dosyaya append (örn. `data/transactions.log`)
 
-## **4.4 Harici Entegrasyon Gereksinimleri (External Interface Requirements)**
+## 1.4 Güvenlik Gereksinimleri (Prototip Seviyesi)
 
-### **EXT-01 Kripto Adaptörleri (Simülasyon)**
+- SHA3-512 + salt parola saklama
+- TOTP doğrulama (demo bypass koşullu)
+- Basit bearer token (in-memory token store)
+- İsteğe bağlı HTTPS zorunluluğu: `REQUIRE_HTTPS=true` ise `X-Forwarded-Proto: https` beklenir
+- Geliştirici bypass token: `DEV_AUTH_TOKEN` ayarlıysa belirli token ile auth bypass (demo kolaylığı)
 
-BTC/ETH/Stablecoin ödemeleri gerçek ağ bağlantısı olmadan adapter katmanında simüle edilmelidir.
+## 1.5 Kapsam Dışı / Bilinçli Basitleştirmeler
 
-### **EXT-02 Kamu Hizmetleri Bildirimleri**
-
-Sensör kaynaklı olaylar EmergencyService ve PublicUtilityService gözlemcilerine iletilmelidir.
-
----
-
-## **4.5 Özet Gereksinim Tablosu**
-
-| Kategori            | Kod    | Gereksinim                                       |
-| ------------------- | ------ | ------------------------------------------------ |
-| Fonksiyonel         | FR-01  | MFA (parola + TOTP) ile giriş, token üretimi     |
-| Fonksiyonel         | FR-02  | Fatura listeleme ve FIAT/BTC/ETH/Stable ödeme    |
-| Fonksiyonel         | FR-03  | TransactionRepository + AuditLogger kaydı        |
-| Fonksiyonel         | FR-04  | CityController rutinleri ve komut kuyruğu        |
-| Fonksiyonel         | FR-05  | SensorSystem olay bildirimi (acil/kamu/bildirim) |
-| Fonksiyonel         | FR-06  | TXT ihracat ve metrik/forecast uçları            |
-| Fonksiyonel         | FR-07  | Admin Dashboard (Kullanıcı/İşlem CRUD, Transfer) |
-| Fonksiyonel Olmayan | NFR-01 | Tek JVM + Docker ile hafif kurulum               |
-| Fonksiyonel Olmayan | NFR-02 | Bellek içi saklama, TXT ihracatı                 |
-| Fonksiyonel Olmayan | NFR-03 | Demo performans (<300ms hedef)                   |
-| Fonksiyonel Olmayan | NFR-04 | Modüler tasarım kalıpları                        |
-| Güvenlik            | SEC-01 | SHA3-512 + salt parola saklama                   |
-| Güvenlik            | SEC-02 | TOTP MFA ve kilitleme/backoff                    |
-| Harici Entegrasyon  | EXT-01 | Kripto adapter simülasyonu                       |
-| Harici Entegrasyon  | EXT-02 | Acil/kamu gözlemci bildirimi                     |
-
----
+- Gerçek banka entegrasyonu veya gerçek e-devlet entegrasyonu yok (tamamı simülasyon)
+- Token’ların kalıcılığı yok (backend restart’ta tokenlar sıfırlanır)
+- Rate-limit, gerçek TLS terminasyonu, kapsamlı denetim kaydı (persisted audit) üretim kapsamındadır

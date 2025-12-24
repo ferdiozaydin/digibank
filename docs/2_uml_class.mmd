@@ -1,6 +1,6 @@
 ---
 config:
- theme: neutral
+  theme: neutral
 ---
 
 classDiagram
@@ -15,7 +15,7 @@ class User {
   +role: String
   +fiatBalance: BigDecimal
   +cryptoBalance: BigDecimal
-  +hasRole(expectedRole)
+  +hasRole(expectedRole: String): boolean
 }
 
 class Transaction {
@@ -25,10 +25,50 @@ class Transaction {
   +amount: BigDecimal
   +timestamp: LocalDateTime
   +status: String
+  +fullName: String
+  +bankCode: String
+  +address: String
+  +recordDate: LocalDate
+}
+
+class UserRepository {
+  -dbEnabled: boolean
+  +upsert(user: User): User
+  +findByUsername(username: String): User
+  +findAll(): List~User~
+  +searchByUsername(q: String): List~User~
+  +deleteByUsername(username: String): boolean
 }
 
 class TransactionRepository {
-  +save(tx: Transaction)
+  -dbEnabled: boolean
+  +create(tx: Transaction): Transaction
+  +save(tx: Transaction): void
+  +update(tx: Transaction): boolean
+  +delete(id: long): boolean
+  +findById(id: long): Transaction
+  +findAll(): List~Transaction~
+  +findByUserId(userId: Long): List~Transaction~
+  +search(q: String, userId: Long): List~Transaction~
+}
+
+class AuthenticationService {
+  +provisionCredentials(user: User, plainPassword: String, totpSecret: String, role: String): void
+  +login(user: User, password: String, totpCode: String): boolean
+  +verifyPassword(password: String, salt: String, expectedHash: String): boolean
+}
+
+class AuditLogger {
+  <<singleton>>
+  +getInstance(): AuditLogger
+  +log(msg: String): void
+  +logError(msg: String, e: Exception): void
+}
+
+class PaymentService {
+  -repository: TransactionRepository
+  +processPayment(user: User, amount: BigDecimal, strategy: PaymentStrategy): boolean
+  +processCryptoPayment(user: User, amountFiat: BigDecimal, adapter: CryptoAdapter): boolean
 }
 
 class PaymentStrategy {
@@ -41,7 +81,6 @@ class FiatPaymentStrategy {
 }
 
 class CryptoPaymentStrategy {
-  +EXCHANGE_RATE: BigDecimal
   +pay(user: User, amount: BigDecimal): boolean
 }
 
@@ -66,146 +105,101 @@ class StablecoinAdapter {
   +name(): String
 }
 
-class PaymentService {
-  -repository: TransactionRepository
-  +processPayment(user: User, amount: BigDecimal, strategy: PaymentStrategy): boolean
-  +processCryptoPayment(user: User, amountFiat: BigDecimal, adapter: CryptoAdapter): boolean
-}
-
-class AuthenticationService {
-  +provisionCredentials(user: User, plainPassword: String, totpSecret: String, role: String)
-  +login(user: User, password: String, totpCode: String): boolean
-  +verifyPassword(password: String, salt: String, expectedHash: String): boolean
-}
-
 class SmartGovernmentService {
-  -paymentService: PaymentService
-  +fetchBills(citizenId: String): List~GovernmentBill~
-  +payBill(user: User, bill: GovernmentBill): boolean
-  +payBillWithCrypto(user: User, bill: GovernmentBill, adapter: CryptoAdapter): boolean
+  +getBillsForCitizen(citizenId: String): List~GovernmentBill~
+  +payBill(billId: String, paymentMethod: String): String
 }
 
 class GovernmentBill {
-  +billingId: String
-  +title: String
+  +id: String
+  +type: String
   +amount: BigDecimal
   +dueDate: String
   +paid: boolean
 }
 
-class SensorSystem {
-  -observers: List~Observer~
-  +addObserver(o: Observer)
-  +removeObserver(o: Observer)
-  +triggerEvent(eventType: String, location: String)
+class ApiServer {
+  -tokenStore: Map~String,User~
+  +start(port: int): void
 }
 
-class Observer {
-  <<interface>>
-  +update(eventType: String, location: String)
+class PredictiveAnalyticsService {
+  +metricsSnapshot(): Map
+  +forecastTraffic(): Map
+  +forecastEnergy(): Map
 }
 
-class BankingNotificationService {
-  +update(eventType: String, location: String)
+class HomeDeviceController {
+  +toggleDevice(deviceId: String, on: boolean): void
+  +setThermostat(zone: String, target: double): void
 }
 
-class EmergencyService {
-  +update(eventType: String, location: String)
-}
-
-class PublicUtilityService {
-  +update(eventType: String, location: String)
-}
-
-class EmailNotificationObserver {
-  +update(eventType: String, location: String)
+class InfrastructureController {
+  +adjustTrafficSignal(intersection: String, mode: String): void
+  +turnOnStreetLight(location: String): void
+  +turnOffStreetLight(location: String): void
 }
 
 class Command {
   <<interface>>
-  +execute()
+  +execute(): void
 }
 
 class CommandInvoker {
-  +submit(cmd: Command)
-  +runAll()
-}
-
-class TurnOnStreetLightCommand {
-  -controller: InfrastructureController
-  -location: String
-  +execute()
-}
-
-class AdjustTrafficSignalCommand {
-  -controller: InfrastructureController
-  -intersection: String
-  -mode: String
-  +execute()
+  +submit(cmd: Command): void
+  +runAll(): void
 }
 
 class ToggleHomeDeviceCommand {
-  -controller: HomeDeviceController
-  -deviceId: String
-  -on: boolean
-  +execute()
+  +execute(): void
+}
+
+class TurnOnStreetLightCommand {
+  +execute(): void
+}
+
+class AdjustTrafficSignalCommand {
+  +execute(): void
 }
 
 class DailyRoutineTemplate {
-  +runRoutine()
-  #checkPreConditions()
-  #executeCoreActions()
-  #checkPostConditions()
+  +executeDailyRoutine(invoker: CommandInvoker): void
 }
 
-class LightingRoutine {
-  #checkPreConditions()
-  #executeCoreActions()
-  #checkPostConditions()
+class LightingRoutine
+class SecuritySweepRoutine
+
+class Observer {
+  <<interface>>
+  +update(eventType: String, location: String): void
 }
 
-class SecuritySweepRoutine {
-  #checkPreConditions()
-  #executeCoreActions()
-  #checkPostConditions()
+class SensorSystem {
+  +addObserver(o: Observer): void
+  +removeObserver(o: Observer): void
+  +triggerEvent(eventType: String, location: String): void
 }
+
+class DirectoryWatcherService {
+  +addObserver(o: Observer): void
+  +removeObserver(o: Observer): void
+  +run(): void
+}
+
+class EmailNotificationObserver {
+  +update(eventType: String, location: String): void
+}
+
+class BankingNotificationService
+class EmergencyService
+class PublicUtilityService
 
 class CityController {
-  -sensorSystem: SensorSystem
-  -commandInvoker: CommandInvoker
-  -infrastructureController: InfrastructureController
-  -homeDeviceController: HomeDeviceController
-  +simulateCityEvents()
-  +runDailyRoutines()
-  +executeQueuedCommands()
-  +demoHomeAutomation()
+  +runDailyRoutines(): void
+  +simulateCityEvents(): void
 }
 
-class InfrastructureController {
-  +adjustTrafficSignal(intersection: String, mode: String)
-  +turnOnStreetLight(location: String)
-  +turnOffStreetLight(location: String)
-}
-
-class HomeDeviceController {
-  +toggleDevice(deviceId: String, on: boolean)
-  +setThermostat(zone: String, target: double)
-}
-
-class ApiServer {
-  +start(port: int)
-  +requireAuth(exchange): User
-  +handlers: login/bills/pay/export/metrics/forecast/home/users/transactions/transfer
-}
-
-class UserRepository {
-  +findByUsername(username: String): User
-  +findAll(): List~User~
-  +upsert(user: User)
-}
-
-User --> TransactionRepository : kullanılır
-PaymentService --> TransactionRepository : kayıt yazar
+PaymentService --> TransactionRepository : save(tx)
 PaymentService --> PaymentStrategy
 PaymentService --> CryptoAdapter
 PaymentStrategy <|.. FiatPaymentStrategy
@@ -213,28 +207,34 @@ PaymentStrategy <|.. CryptoPaymentStrategy
 CryptoAdapter <|.. BtcAdapter
 CryptoAdapter <|.. EthAdapter
 CryptoAdapter <|.. StablecoinAdapter
-SmartGovernmentService --> PaymentService
-SmartGovernmentService --> GovernmentBill
-AuthenticationService --> User : kimlik bilgisi hazırlar
+
 ApiServer --> AuthenticationService
+ApiServer --> UserRepository
+ApiServer --> TransactionRepository
 ApiServer --> PaymentService
 ApiServer --> SmartGovernmentService
-ApiServer --> UserRepository
-ApiServer --> HomeDeviceController
 ApiServer --> PredictiveAnalyticsService
+ApiServer --> HomeDeviceController
+
 UserRepository --> User
 TransactionRepository --> Transaction
+AuthenticationService --> User
+AuditLogger <-- AuthenticationService
+AuditLogger <-- UserRepository
+AuditLogger <-- TransactionRepository
+AuditLogger <-- PaymentService
 
 SensorSystem --> Observer
+DirectoryWatcherService --> Observer
 Observer <|.. BankingNotificationService
 Observer <|.. EmergencyService
 Observer <|.. PublicUtilityService
 Observer <|.. EmailNotificationObserver
 
 CommandInvoker --> Command
+Command <|.. ToggleHomeDeviceCommand
 Command <|.. TurnOnStreetLightCommand
 Command <|.. AdjustTrafficSignalCommand
-Command <|.. ToggleHomeDeviceCommand
 
 DailyRoutineTemplate <|-- LightingRoutine
 DailyRoutineTemplate <|-- SecuritySweepRoutine

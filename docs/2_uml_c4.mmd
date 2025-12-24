@@ -1,69 +1,42 @@
 ---
 config:
- theme: neutral
+  theme: neutral
 ---
 
 C4Container
-    title DigiBank + Smart City - Container Diagram (Kod ile uyumlu)
+title DigiBank + Smart City - Container Diagram (docker-compose ile uyumlu)
 
-    Person(resident, "Resident", "Şehir sakini; web/mobil istemci ile erişir.")
-    Person(admin, "System Admin", "Kullanıcı ve yetki yönetir; iç denetimi yürütür.")
+Person(resident, "Resident", "GUI üzerinden bankacılık işlemleri ve smart-gov ödemeleri yapar.")
+Person(admin, "System Admin", "GUI üzerinden user/transaction yönetir; export/metrics/forecast kullanır.")
 
-    Person_Ext(psa, "Public Safety Authority", "Acil durum uyarılarını alır.")
-    Person_Ext(utility, "Public Utility Service", "Su/elektrik gibi altyapı uyarılarını alır.")
+Person_Ext(psa, "Public Safety Authority", "SensorSystem olaylarını alır (demo/console).")
+Person_Ext(utility, "Public Utility Service", "SensorSystem olaylarını alır (demo/console).")
 
-System_Boundary(smartcity, "Smart City & DigiBank Platform (Java prototype)") {
+System_Boundary(platform, "DigiBank Platform") {
+  Container(gui, "Web GUI", "Python 3.9 + Flask", "HTML arayüz; backend API'ye istek atar; rapor indirir/e-posta yollar.")
+  Container(api, "Backend API", "Java 17 + HttpServer", "REST: /api/login, /api/bills, /api/pay, /api/transfer, /api/users*, /api/transactions*, /api/export, /api/metrics, /api/forecast, /api/home/*")
 
-  Container(webApp, "Resident Web/Mobile UI", "Web / Mobile", "Fatura görüntüleme, ödeme, ev otomasyonu.")
-  Container(adminPortal, "Admin Console", "Web Application", "Kullanıcı kayıt, metrik, dışa aktarma.")
+  ContainerDb(db, "Database", "PostgreSQL 14", "users ve transactions tabloları (opsiyonel; env varsa aktif).")
+  Container(mailpit, "Mailpit", "SMTP catcher", "GUI'nin gönderdiği transaction e-postalarını yakalar.")
 
-  Container(apiServer, "ApiServer", "Java HttpServer", "REST uçları: login, fatura, ödeme, metrik, ev kontrolü.")
-  Container(authService, "AuthenticationService", "Service", "SHA3-512 + salt, TOTP MFA, geçici kilitleme.")
-  Container(userRepo, "UserRepository", "In-memory store", "Kullanıcı ve rol bilgisi; txt dışa aktarma.")
+  Container(exportDir, "Export Folder", "Bind mount: ./txt -> /app/txt", "Backend /api/export çıktıları; DirectoryWatcherService bu klasörü izler.")
+  Container(txFallback, "Fallback Tx Log", "data/transactions.log", "DB kapalıysa TransactionRepository append eder (konteyner FS).")
 
-  Container(paymentService, "PaymentService", "Service", "Strategy + Adapter ile fiat/kripto ödemeleri kaydeder.")
-  Container(txRepo, "TransactionRepository", "In-memory store", "İşlem loglarını tutar (AuditLogger ile birlikte).")
-  Container(govService, "SmartGovernmentService", "Service", "Fatura listeler; fiat veya kripto ödeme çağırır.")
-  Container(cryptoAdapters, "CryptoAdapters", "BTC/ETH/Stable", "BtcAdapter/EthAdapter/StablecoinAdapter ile blokzincir simülasyonu.")
-
-  Container(sensorSystem, "SensorSystem", "Observer", "Olayları BankingNotification/Emergency/Utility servislerine yayınlar.")
-  Container(commandInvoker, "CommandInvoker", "Command queue", "Trafik/ışık ve ev cihazı komutlarını sırayla çalıştırır.")
-  Container(cityController, "CityController", "Service", "Günlük rutinleri, sensör tetiklerini ve komut kuyruğunu yürütür.")
-  Container(infrastructure, "InfrastructureController", "Service", "Trafik ışığı ve sokak aydınlatmasını kontrol eder.")
-  Container(homeController, "HomeDeviceController", "Service", "Cihaz aç/kapat, termostat ayarı.")
-  Container(analyticsEngine, "PredictiveAnalyticsService", "Analytics", "Trafik/enerji tahmini ve metrik snapshot üretir.")
-
-  Container(logStore, "AuditLogger + txt export", "File output", "İşlem logları ve admin dışa aktarma dosyaları.")
+  Container(sensor, "SensorSystem", "Observer", "Demo olay üretimi ve observer'lara bildirim.")
+  Container(city, "CityController", "Service", "Günlük rutin + command invoker + sensor tetikleri.")
 }
 
-System_Ext(iotSensors, "IoT Sensors & Cameras", "Olay üreten sensörler (simülasyon).")
+Rel(resident, gui, "Kullanır", "HTTP")
+Rel(admin, gui, "Kullanır (Admin ekranları)", "HTTP")
 
-Rel(resident, webApp, "Kullanır", "HTTPS")
-Rel(admin, adminPortal, "Yönetim için kullanır", "HTTPS")
+Rel(gui, api, "REST çağrıları", "HTTP")
+Rel(gui, mailpit, "Transaction raporu e-postası gönderir", "SMTP")
+Rel(admin, mailpit, "E-postaları görür", "HTTP")
 
-Rel(webApp, apiServer, "REST çağrıları", "HTTPS")
-Rel(adminPortal, apiServer, "Yönetim API çağrıları", "HTTPS")
+Rel(api, db, "JDBC ile okur/yazar (env varsa)", "SQL")
+Rel(api, exportDir, "TXT export yazar; watcher okur", "FS")
+Rel(api, txFallback, "DB yoksa dosyaya append", "FS")
 
-Rel(apiServer, authService, "Giriş/MFA doğrulama", "HTTPS")
-Rel(apiServer, userRepo, "Kayıt/Güncelle/Fetch", "In-memory")
-Rel(apiServer, paymentService, "Ödeme tetikler", "HTTPS")
-Rel(apiServer, govService, "Fatura sorgular", "HTTPS")
-Rel(apiServer, analyticsEngine, "Metrik/Tahmin", "HTTPS")
-Rel(apiServer, homeController, "Ev cihazı/termostat", "HTTPS")
-Rel(apiServer, logStore, "TXT dışa aktarma yazar", "File")
-
-Rel(paymentService, txRepo, "İşlem kaydı", "In-memory")
-Rel(paymentService, logStore, "Audit log", "File")
-Rel(govService, paymentService, "Fiat/kripto ödeme çağırır", "In-process")
-Rel(paymentService, cryptoAdapters, "Kripto ödemesi için Adapter", "In-process")
-
-Rel(cityController, sensorSystem, "Olay dinler / tetikler", "In-process")
-Rel(sensorSystem, psa, "Acil durum bildirir", "Notify")
-Rel(sensorSystem, utility, "Altyapı arıza bildirir", "Notify")
-Rel(sensorSystem, resident, "Bölgesel uyarı gönderir", "Notify")
-Rel(cityController, commandInvoker, "Komut kuyruğunu çalıştırır", "In-process")
-Rel(commandInvoker, infrastructure, "Trafik/ışık komutu", "In-process")
-Rel(commandInvoker, homeController, "Ev cihaz komutu", "In-process")
-
-Rel(analyticsEngine, cityController, "Tahmin verisi sağlar", "In-process")
-Rel(iotSensors, sensorSystem, "Olay tetikler", "Simulated feed")
+Rel(city, sensor, "Olay tetikler", "In-process")
+Rel(sensor, psa, "Bildirim", "Notify")
+Rel(sensor, utility, "Bildirim", "Notify")

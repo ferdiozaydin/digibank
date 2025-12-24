@@ -1,243 +1,136 @@
-# DigiBank & Smart City Entegrasyonu - Kapsamlı Proje Raporu
+# DigiBank & Smart City Entegrasyonu – Kapsamlı Proje Raporu (Repo ile uyumlu)
 
-**Öğrenci Adı / No:** Ferdi Özaydın / 2420003042
-**Ders:** Nesne Yönelimli Programlama
-**Tarih:** 21.12.2025
+**Öğrenci:** Ferdi Özaydın / 2420003042  
+**Ders:** Nesne Tabanlı Programlama  
+**Tarih:** 25.12.2025
 
----
+## 1. Yönetici Özeti
 
-## **İçindekiler**
+Bu proje, “dijital bankacılık” akışlarını “smart city otomasyonu” ile birleştiren çalışır bir prototip sunar. Sistem iki ana parçadan oluşur:
 
-1.  **Yönetici Özeti (Executive Summary)**
-2.  **Giriş (Introduction)**
-    - 2.1 Akıllı Şehirlerin Geleceği
-    - 2.2 FinTech ve Ödeme Esnekliği
-    - 2.3 Projenin Amacı ve Kapsamı
-3.  **Gereksinim Analizi (Requirements Analysis)**
-    - 3.1 Kullanıcı Profilleri ve Paydaşlar
-    - 3.2 Fonksiyonel Gereksinimler
-    - 3.3 Fonksiyonel Olmayan Gereksinimler
-    - 3.4 Kısıtlar ve Varsayımlar
-4.  **Sistem Mimarisi ve Tasarım (System Architecture)**
-    - 4.1 Genel Mimari Yaklaşımı
-    - 4.2 C4 Model Özeti
-    - 4.3 Veri ve Depolama
-    - 4.4 Sınıf Diyagramı ve Tasarım Kalıpları
-    - 4.5 Örnek Sıralama Senaryosu
-5.  **Algoritmalar, Tasarım Kalıpları ve Sözde Kod (Implementation Details)**
-    - 5.1 MFA Kimlik Doğrulama Akışı
-    - 5.2 Hibrit Ödeme Motoru (Strategy & Adapter)
-    - 5.3 CityController, Observer & Command
-    - 5.4 Audit ve İhracat
-6.  **Kullanıcı Arayüzü ve Deneyimi (UI/UX)**
-7.  **Siber Güvenlik ve Veri Koruma (Security)**
-8.  **Teknoloji Yığını ve Dağıtım (Deployment)**
-9.  **Araştırma Özeti (Task 2.A)**
-10. **Konferans Raporu Özeti (Task 2.B)**
-11. **Test Stratejisi ve Sonuçlar**
-12. **Sonuç ve Gelecek Vizyonu**
-13. **Ekler**
+- **Java 17 Backend**: Gömülü `HttpServer` ile REST API sağlar; MFA login, ödeme, transfer, admin CRUD, export, metrik/tahmin ve home-control uçları içerir.
+- **Python/Flask GUI**: Web arayüz; Java API’yi tüketir; admin ekranları ve raporlama (XLSX/PDF, e-posta) gibi ek demo fonksiyonları sağlar.
 
----
+Dağıtım, `docker-compose.yml` ile **PostgreSQL** ve **Mailpit** servislerini de içerir. Backend, DB ortam değişkenleri varsa `users/transactions` tablolarını kullanır; DB yoksa in-memory + dosya fallback mantığına döner.
 
-## **1. Yönetici Özeti (Executive Summary)**
+## 2. Projenin Amacı ve Kapsamı
 
-Bu rapor, DigiBank dijital bankacılık akışlarını Smart City otomasyonu ile birleştiren Java tabanlı prototipin tamamlanmış halini özetler. Sistem, gömülü HttpServer üzerinden REST uçları sunar, SHA3-512 + salt şifre saklama ve TOTP çok faktörlü doğrulama uygular, fiat ve simüle kripto ödemelerini Strategy/Adapter kalıplarıyla işler, sensör olaylarını Observer/Command hattı üzerinden şehir servislerine yönlendirir. Tüm veri saklama işlemleri bellek içi repository ve TXT ihracat ile yapılır; Docker tabanlı tek servis olarak çalıştırılabilir.
+Amaç; aşağıdaki konuları tek bir repo üzerinde göstermek:
 
----
+- MFA ve rol bazlı erişim kontrolü
+- FIAT + simüle kripto ödeme (Strategy/Adapter)
+- Admin yönetimi (Users/Transactions CRUD)
+- Operasyonel çıktılar: export, raporlama, e-posta demo
+- Smart-city olay akışı: Observer/Command/Template Method
 
-## **2. Giriş (Introduction)**
+Kapsam dışı: gerçek e-devlet entegrasyonu, üretim-grade token yönetimi, tam TLS terminasyonu ve yük testi.
 
-### **2.1. Akıllı Şehirlerin Geleceği**
+## 3. Sistem Bileşenleri
 
-Şehir hizmetleri gerçek zamanlı ödeme ve olay yanıtı gerektirir. Trafik, güvenlik ve enerji sensörlerinden gelen veriler, otomatik aksiyonlar ve kesintisiz tahsilat ile desteklenmelidir.
+### 3.1 Backend (Java)
 
-### **2.2. FinTech ve Ödeme Esnekliği**
+Backend’in giriş noktası `Main` sınıfıdır:
 
-Kullanıcıların aynı arayüzden fiat ve kripto benzeri ödemeleri seçebilmesi, esnek kurulum maliyeti düşük bir altyapı sunar. Prototipte kripto işlemler BTC/ETH/Stablecoin adapterlarıyla simüle edilir.
+- Admin kullanıcı oluşturur (demo)
+- `DirectoryWatcherService("txt")` ile export klasörünü izler
+- Demo komutlarını kuyruğa ekler
+- `ApiServer`’ı başlatır (varsayılan 8080)
 
-### **2.3. Projenin Amacı ve Kapsamı**
+API uçları (özet):
 
-Tek JVM üzerinde çalışan, MFA’lı giriş, fatura sorgulama/ödeme, cihaz/altyapı komutları ve gözlemlenebilirlik sağlayan demo bir sistem üretmek; kod, diyagram ve dokümantasyon tutarlılığını göstermek.
+- Auth: `POST /api/login`
+- User: `GET /api/user`
+- Bills/Pay: `GET /api/bills`, `POST /api/pay`
+- Transfer: `POST /api/transfer`
+- Admin Users: `/api/users`, `/api/users/register`, `/api/users/search`, `/api/users/item`
+- Admin Transactions: `/api/transactions`, `/api/transactions/create`, `/api/transactions/search`, `/api/transactions/item`
+- Ops: `POST /api/export`, `GET /api/metrics`, `GET /api/forecast`
+- Home: `POST /api/home/toggle`, `POST /api/home/thermostat`
 
----
+### 3.2 GUI (Flask)
 
-## **3. Gereksinim Analizi (Requirements Analysis)**
+GUI; backend’e token ile bağlanır ve aşağıdaki ekranları sağlar:
 
-### **3.1. Kullanıcı Profilleri ve Paydaşlar**
+- Dashboard + Performance
+- Smart Government (fatura ödeme)
+- Transfer
+- Users (ADMIN)
+- Transactions (ADMIN) + XLSX/PDF indirme + SMTP ile e-posta
+- Home Control
 
-1. **Şehir Sakini (Resident):** Giriş, fatura görüntüleme, FIAT/BTC/ETH/STABLE ile ödeme.
-2. **Yönetici (Admin):** Metrik/forecast görme, TXT ihracat, cihaz ve altyapı komutları.
-3. **Kamu Hizmet Sağlayıcısı:** Fatura üretim akışı (SmartGovernmentService) ve olay bildirimi.
-4. **Acil Durum Servisi:** Sensör uyarılarıyla tetiklenen bildirimleri alır.
+### 3.3 Postgres (Opsiyonel Kalıcılık)
 
-### **3.2. Fonksiyonel Gereksinimler**
+Backend; `DB_URL/DB_USER/DB_PASS` set edilmişse:
 
-- FR-01: `/api/login` üzerinden kullanıcı adı + parola + TOTP ile giriş; başarısızlıkta backoff/lock.
-- FR-02: `/api/bills` ile fatura listesi; `/api/pay` ile FIAT veya kripto ödemesi; Transaction kaydı.
-- FR-03: `/api/export` ile TXT çıktı; DirectoryWatcherService değişiklikleri gözleyebilir.
-- FR-04: `/api/metrics` ve `/api/forecast` ile demo metrik ve tahmin üretimi.
-- FR-05: `/api/home/*` ve komut kuyruğu ile cihaz/altyapı kontrolü.
-- FR-06: Sensör olaylarının Observer ile Emergency/PublicUtility/BankingNotification servislerine iletimi.
-- FR-07: Yönetici tarafından `/api/users` ve `/api/transactions` ile tam veri yönteti (CRUD).
+- `users` tablosu (id, username, password_hash, salt, totp_secret, role, fiat_balance, crypto_balance, pq_public_key)
+- `transactions` tablosu (id, user_id, description, amount, status, created_at, full_name, bank_code, address, record_date)
 
-### **3.3. Fonksiyonel Olmayan Gereksinimler**
+DB yoksa:
 
-- NFR-01: Demo performans (tek JVM, düşük gecikme hedefi < 300ms).
-- NFR-02: Basit audit (AuditLogger) ve TXT ihracat ile izlenebilirlik.
-- NFR-03: Docker ile tek servis olarak çalıştırılabilirlik.
+- Users cache’de tutulur
+- Transactions hem listede tutulur hem de dosyaya append edilebilir
 
-### **3.4. Kısıtlar ve Varsayımlar**
+### 3.4 Mailpit
 
-- Gerçek veritabanı yok; bellek içi repository kullanılır.
-- Kripto işlemleri oran sabitleriyle simüle edilir; ağ entegrasyonu yoktur.
-- Token yönetimi basitleştirilmiştir; TLS terminasyonu konteyner dışında varsayılır.
+GUI’nin `/transactions/email` akışı SMTP ile mail gönderir; Mailpit bu mailleri yakalar ve web UI üzerinden gösterir.
 
----
+## 4. Tasarım Kalıpları
 
-## **4. Sistem Mimarisi ve Tasarım (System Architecture)**
+- **Singleton**: `AuditLogger`
+- **Strategy**: `PaymentStrategy` (FIAT/crypto balance stratejisi)
+- **Adapter**: `CryptoAdapter` (BTC/ETH/STABLE simülasyonu)
+- **Observer**: `SensorSystem`, `DirectoryWatcherService`
+- **Command**: `CommandInvoker` ve altyapı/home komutları
+- **Template Method**: Günlük rutin şablonu ve alt sınıflar
 
-### **4.1. Genel Mimari Yaklaşımı**
+## 5. Güvenlik
 
-Tek JVM içinde gömülü HttpServer barındıran bir monolit. Servis katmanları (AuthenticationService, PaymentService, SmartGovernmentService, CityController, PredictiveAnalyticsService) ayrık sınıflarla tanımlıdır.
+Prototip seviyesinde uygulanmış güvenlik unsurları:
 
-### **4.2. C4 Model Özeti**
+- SHA3-512 + salt parola saklama
+- TOTP doğrulama (DEMO secret için `000000` kabul edilebilir)
+- Backoff ve geçici kilitleme
+- Rol bazlı endpoint yetkilendirme
+- Opsiyonel HTTPS zorunluluğu (`REQUIRE_HTTPS=true` ve `X-Forwarded-Proto`)
+- Demo kolaylığı için opsiyonel auth bypass (`DEV_AUTH_TOKEN`)
 
-Güncel [docs/2_uml_c4.mmd](2_uml_c4.mmd) konteyner diyagramı:
+## 6. Dağıtım ve Çalıştırma
 
-- Container: ApiServer (REST uçları + Admin Endpointler), AuthenticationService, UserRepository, PaymentService + CryptoAdapter’lar, TransactionRepository, SmartGovernmentService, CityController, SensorSystem, CommandInvoker, HomeDeviceController, InfrastructureController, PredictiveAnalyticsService, AuditLogger/TXT Export.
+Önerilen yöntem:
 
-### **4.3. Veri ve Depolama**
-
-- Bellek içi `UserRepository` ve `TransactionRepository`.
-- TXT ihracatı `exportUsersAsTxt` ve `writeToFile` ile sağlanır.
-- Kalıcı DB veya mesaj kuyruğu yoktur.
-
-### **4.4. Sınıf Diyagramı ve Tasarım Kalıpları**
-
-Güncel [docs/2_uml_class.mmd](2_uml_class.mmd) sınıf diyagramı temel unsurları:
-
-- Strategy/Adapter: `PaymentService` → `PaymentStrategy` (FiatPaymentStrategy) ve `CryptoAdapter` (BtcAdapter, EthAdapter, StablecoinAdapter).
-- Observer: `SensorSystem` → `EmergencyService`, `PublicUtilityService`, `BankingNotificationService`.
-- Command: `CommandInvoker` + `ToggleHomeDeviceCommand`, `TurnOnStreetLightCommand`, `AdjustTrafficSignalCommand`.
-- Template Method: `DailyRoutineTemplate`, somut `LightingRoutine`, `SecuritySweepRoutine`.
-- Singleton: `AuditLogger`.
-
-### **4.5. Örnek Sıralama Senaryosu (Fatura Ödeme)**
-
-1. Kullanıcı `/api/login` ile MFA doğrular, token alır.
-2. `/api/bills` ile fatura listesi çeker.
-3. `/api/pay` çağrısında FIAT veya BTC/ETH/STABLE seçer.
-4. SmartGovernmentService faturayı bulur, PaymentService seçilen stratejiyi/adaptörü uygular.
-5. TransactionRepository kaydı ve AuditLogger izi yazılır.
-
----
-
-## **5. Algoritmalar, Tasarım Kalıpları ve Sözde Kod (Implementation Details)**
-
-### **5.1. MFA Kimlik Doğrulama Akışı (AuthenticationService)**
-
-```java
-public String login(String username, String password, String totpCode) {
-    User user = userRepository.findByUsername(username);
-    if (user == null) return "User not found";
-    if (user.isLocked() || System.currentTimeMillis() < user.getLockoutExpiry()) return "Account locked";
-    if (!securePasswordMatch(password, user.getSalt(), user.getPasswordHash())) { backoff(user); return "Invalid"; }
-    if (!validateTotp(user, totpCode)) { backoff(user); return "Invalid"; }
-    resetBackoff(user);
-    return generateToken(user);
-}
+```bash
+docker compose up --build
 ```
 
-### **5.2. Hibrit Ödeme Motoru (Strategy & Adapter)**
+Erişim:
 
-```java
-public String processPayment(String user, String billId, double amount, String method) {
-    PaymentStrategy strategy = method.equals("FIAT")
-        ? new FiatPaymentStrategy()
-        : new CryptoPaymentStrategy(selectAdapter(method));
-    boolean ok = strategy.pay(amount, billId + " paid via " + method);
-    if (ok) transactionRepository.add(new Transaction(user, amount, "PENDING", method));
-    return ok ? "Processed via " + method : "Payment failed";
-}
-```
+- GUI: `http://localhost:8000`
+- Backend: `http://localhost:8080`
+- Mailpit: `http://localhost:8025`
 
-### **5.3. CityController, Observer & Command**
+## 7. Test Stratejisi (Prototip)
 
-```java
-public void runDailyOps() {
-    new LightingRoutine().executeDailyRoutine(commandInvoker);
-    new SecuritySweepRoutine().executeDailyRoutine(commandInvoker);
-    sensorSystem.simulateTrafficEvent();
-    sensorSystem.simulateFireEvent();
-    commandInvoker.executePending();
-}
-```
+- **E2E manuel test**: GUI üzerinden login → bills/pay → transfer → users/transactions CRUD
+- **API smoke test**: `curl` ile `/api/login` ve token ile `/api/user`
+- **Export/Watcher**: export tetiklenip `txt/` altında dosya oluştuğu doğrulanır; watcher konsola simülasyon basar
+- **Mail**: GUI transactions email ile mailpit’te mail görüldüğü doğrulanır
 
-### **5.4. Audit ve İhracat**
+## 8. Sonuç ve Gelecek Çalışmalar
 
-- `AuditLogger.log(String context, String msg)` ile tüm login/ödeme olayları kaydedilir.
-- `/api/export` uç noktası `txt/` klasörüne kullanıcı ve işlem dökümlerini yazar.
+Bu repo; OOP tasarım kalıpları, güvenlik temelleri ve operasyonel bileşenlerle (DB/mail/export) desteklenmiş küçük ama çalışır bir prototip ortaya koyar.
 
----
+Gelecek adımlar:
 
-## **6. Kullanıcı Arayüzü ve Deneyimi (UI/UX)**
+- Token yaşam döngüsü, refresh, rate limiting
+- Persisted audit log ve izlenebilirlik (correlation ID)
+- Smart Government faturalarının gerçek servis/mock server ile ayrıştırılması
+- Olay akışının message bus ile gerçekçi hale getirilmesi
 
-`gui/` dizininde Flask tabanlı basit bir panel ve HTML şablonları (dashboard, login, cards vb.) yer alır. HTTP uçları Java tarafında olduğundan, Python GUI `requests` kütüphanesi ile Java REST API'ye bağlanarak (Login, Fatura, Dashboard, Komutlar) canlı veri ile çalışır.
+## 9. Ekler ve İlgili Dokümanlar
 
----
-
-## **7. Siber Güvenlik ve Veri Koruma (Security)**
-
-- SHA3-512 + kullanıcıya özgü salt ile parola saklama; sabit zamanlı karşılaştırma.
-- TOTP doğrulama (önceki/sonraki zaman dilimi toleransı); yalnızca DEMO gizli anahtarı için 000000 bypass.
-- Başarısız denemelerde kademeli bekleme ve geçici kilitleme.
-- Basit token üretimi; TLS, oran sınırlama ve rol ayrımı üretim ortamında eklenmelidir.
-
----
-
-## **8. Teknoloji Yığını ve Dağıtım (Deployment)**
-
-- **Dil/Runtime:** Java 17+, gömülü `com.sun.net.httpserver.HttpServer`.
-- **Bağımlılıklar:** Harici kütüphane yok; SHA3 için `java.security` kullanımı.
-- **Dağıtım:** `Dockerfile` ile tek konteyner; kalıcı veri gereksinimi olmadığından harici hizmet yoktur.
-
----
-
-## **9. Araştırma Özeti (Task 2.A)**
-
-Güncel içerik için [docs/8_research_summary.md](8_research_summary.md); metin OOP kalıpları, güvenlik ve gelecekteki geliştirmelerle günceldir.
-
----
-
-## **10. Konferans Raporu Özeti (Task 2.B)**
-
-Güncel metin için [docs/9_conference_paper.md](9_conference_paper.md); Java prototip, MFA, ödeme motoru, Observer/Command akışları ve geleceğe dönük yol haritası özetlenmiştir.
-
----
-
-## **11. Test Stratejisi ve Sonuçlar**
-
-- **Manuel uç testleri:** `/api/login`, `/api/bills`, `/api/pay (FIAT/BTC/ETH/STABLE)`, `/api/export`, `/api/metrics`, `/api/forecast`, `/api/home/*` uçları `curl` ile doğrulandı.
-- **Simülasyon:** `CityController` günlük rutin ve sensör olayları tetiklenerek Observer/Command hattı çalıştırıldı; AuditLogger izleri üretildi.
-- **Performans:** Tek JVM ve bellek içi veri ile demo seviyesinde düşük gecikme gözlendi; resmi yük testi yapılmadı.
-
----
-
-## **12. Sonuç ve Gelecek Vizyonu**
-
-Java prototip, güvenli giriş, hibrit ödeme ve şehir otomasyonu kabiliyetlerini tek kod tabanında toplar. Sonraki adımlar: gerçek döviz/kripto kuru entegrasyonu, kalıcı veritabanı, TLS ve oran sınırlama, servislerin ayrıştırılması ve mesaj kuyruğu ile bildirim yayılımı.
-
----
-
-## **13. Ekler**
-
-- Ek A: C4, Sınıf ve Kullanım Senaryosu Diyagramları (Mermaid) — [docs/2_uml_c4.mmd](2_uml_c4.mmd), [docs/2_uml_class.mmd](2_uml_class.mmd), [docs/2_uml_usecase.mmd](2_uml_usecase.mmd)
-- Ek B: Sözde Kod — [docs/3_pseudocode.md](3_pseudocode.md)
-- Ek C: Araştırma Özeti — [docs/8_research_summary.md](8_research_summary.md)
-- Ek D: Konferans Raporu — [docs/9_conference_paper.md](9_conference_paper.md)
-- Ek E: TXT İhracat Örneği — `txt/` klasörü
-
----
-
-**Rapor Sonu.**
+- Çalıştırma adımları: `docs/0_Steps.md`
+- Gereksinimler: `docs/1_requirements.md` ve `docs/1_requirements_ieee.md`
+- Diyagramlar: `docs/2_uml_c4.mmd`, `docs/2_uml_class.mmd`, `docs/2_uml_usecase.mmd`
+- Psödokod: `docs/3_pseudocode.md`
+- DB şeması: `docs/ek_a_database_schema.mmd`
+- Proje yapı diyagramı: `docs/ek_c_source_structure.mmd`

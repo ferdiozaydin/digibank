@@ -1,92 +1,103 @@
-# 1. Gereksinim Analizi (IEEE Formatı)
+# DigiBank – SRS (IEEE tarzı özet, prototip ile uyumlu)
 
-## **Fonksiyonel Gereksinimler (Functional Requirements)**
+## 1. Introduction
 
-### **FR-01 Dijital Ödeme İşlemleri**
+### 1.1 Purpose
 
-Sistem, kullanıcıların hem fiat (geleneksel para birimi) hem de kripto para ile ödeme yapabilmesini sağlamalıdır. Ödeme işlemleri güvenli bir altyapı üzerinden gerçekleştirilmelidir.
+Bu SRS, DigiBank prototipinin gereksinimlerini **uygulanmış kod** ile tutarlı şekilde tanımlar. Prototip; Java backend API, Flask GUI, Postgres (opsiyonel kalıcılık) ve Mailpit (SMTP yakalayıcı) bileşenlerinden oluşur.
 
-### **FR-02 Güvenli Kullanıcı Girişi**
+### 1.2 Scope
 
-Sistem, çok faktörlü kimlik doğrulama (MFA) ve rol tabanlı erişim kontrolü ile kullanıcıların güvenli giriş yapmasını desteklemelidir.
+- Gömülü Java `HttpServer` ile REST API
+- MFA login (parola hash + TOTP), rol tabanlı erişim
+- Smart Government fatura listeleme/ödeme (simülasyon)
+- Admin kullanıcı/işlem yönetimi, export
+- GUI üzerinden ödeme/transfer/users/transactions akışları
 
-### **FR-03 Şehir Hizmetlerinin Görüntülenmesi ve Ödenmesi**
+### 1.3 Definitions
 
-Kullanıcı, park ücreti, toplu taşıma bileti, kamu hizmetleri gibi şehir servislerini görüntüleyebilmeli ve seçilen hizmet için ödeme yapabilmelidir.
+- **FIAT**: Kullanıcının TL benzeri bakiyesi (`fiatBalance`)
+- **Crypto**: Kullanıcının kripto bakiyesi (`cryptoBalance`), adaptör/strateji ile simüle edilir
+- **MFA**: Parola + TOTP doğrulaması
 
-### **FR-04 İşlem Kaydı Yönetimi**
+## 2. Overall Description
 
-Sistem, gerçekleştirilen tüm ödeme ve işlem aktiviteleri için ayrıntılı işlem kayıtları (transaction logs) tutmalıdır. Loglar gerektiğinde incelenebilir olmalıdır.
+### 2.1 Product Perspective
 
-### **FR-05 Şehir Otomasyon Rutinleri**
+Sistem bir eğitim/prototip uygulamasıdır. Üretim-grade kimlik/oturum yönetimi, gerçek entegrasyonlar ve kapsamlı denetim kayıtları kapsam dışıdır.
 
-CityController bileşeni; sokak aydınlatması, trafik ışıkları ve diğer şehir altyapısı üzerinde otomatik rutinleri çalıştırabilmelidir.
+### 2.2 Product Functions (Implemented)
 
-### **FR-06 Sensör Olay Yönetimi**
+- `/api/login` ile token üretimi
+- `/api/user` ile kullanıcı bilgisi
+- `/api/bills` + `/api/pay` ile fatura ödeme
+- `/api/transfer` ile transfer kaydı
+- `/api/users*` (ADMIN) ile kullanıcı CRUD
+- `/api/transactions*` (ADMIN) ile işlem CRUD
+- `/api/export` (ADMIN) ile `txt/` altına export dosyası
+- `/api/metrics`, `/api/forecast` (ADMIN) ile demo metrik/tahmin
+- `/api/home/toggle`, `/api/home/thermostat` ile home otomasyon
+- Flask GUI ekranları ile bu akışların web üzerinden gösterimi
 
-Sistem, güvenlik veya çevresel sensörlerden gelen olayları gerçek zamanlı işleyebilmeli ve ilgili kamu birimlerine bildirim göndermelidir.
+### 2.3 User Classes
 
----
+- **Resident**: Ödeme/transfer/home-control
+- **Admin**: Resident yetenekleri + kullanıcı/işlem yönetimi + export/metrics/forecast
 
-## **Fonksiyonel Olmayan Gereksinimler (Non-Functional Requirements)**
+### 2.4 Operating Environment
 
-### **NFR-01 Güvenli İletişim**
+- Docker Compose ile: Java 17, Python 3.9, PostgreSQL 14, Mailpit
+- Lokal çalıştırmada da backend/GUI bağımsız başlatılabilir
 
-Sistem içindeki tüm veri iletimi uçtan uca şifreleme (end-to-end encryption) ile korunmalıdır.
+### 2.5 Constraints
 
-### **NFR-02 Hibrit Bulut Mimarisi**
+- Token store in-memory (backend restart’ta tokenlar kaybolur)
+- Smart Government faturaları simülasyondur
+- Java tarafında e-posta gönderimi **simülasyon**; GUI tarafında SMTP ile Mailpit’e gönderim vardır
 
-Sistem, hem yerel (on-prem) bileşenleri hem de bulut tabanlı servisleri kullanarak hibrit bulut altyapısı üzerinde çalışmalıdır. Bulut depolama (loglar, analiz verileri vb.) entegre olmalıdır.
+## 3. Specific Requirements
 
-### **NFR-03 Performans ve Ölçeklenebilirlik**
+### 3.1 Functional Requirements
 
-Sistem, en az 10.000 eşzamanlı kullanıcıyı destekleyebilecek performans kapasitesine sahip olmalıdır.
+- **FR-01** MFA login: SHA3-512 + salt + TOTP, backoff/lock
+- **FR-02** Token ile erişim: `Authorization: Bearer <token>`
+- **FR-03** Rol bazlı yetki: ADMIN vs RESIDENT
+- **FR-04** Fatura listeleme/ödeme: FIAT veya BTC/ETH/STABLE
+- **FR-05** Transfer: kayıt oluşturma
+- **FR-06** Admin Users CRUD
+- **FR-07** Admin Transactions CRUD (manuel işlem modeli dahil)
+- **FR-08** Export: `txt/` altına zaman damgalı dosya
+- **FR-09** Metrik/Tahmin: demo çıktılar
+- **FR-10** Home-control: toggle ve thermostat
 
-### **NFR-04 Modüler Mimari**
+### 3.2 External Interface Requirements
 
-Sistem, nesne yönelimli prensipleri ve tasarım kalıplarını (Singleton, Observer, Command, Adapter, Template Method vb.) kullanacak şekilde modüler ve genişletilebilir olarak tasarlanmalıdır.
+- **HTTP API**: `/api/*` JSON payload/response
+- **SMTP**: GUI, Mailpit’e SMTP ile mail gönderir
+- **DB**: Postgres aktifse `users` ve `transactions` tablosu
 
----
+## 4. Non-Functional Requirements
 
-## **4.3 Güvenlik Gereksinimleri (Security Requirements)**
+### 4.1 Performance (Prototype)
 
-### **SEC-01 Kuantuma Dayanıklı Şifreleme**
+- Tek instance/demo kullanım hedeflenir; resmi yük test hedefi yoktur.
 
-Sistem, kritik veri ve işlem kanallarında kuantuma dayanıklı kriptografik yöntemleri desteklemelidir.
+### 4.2 Security (Prototype)
 
-### **SEC-02 Şüpheli İşlem Tespiti**
+- SHA3-512 + salt parola saklama
+- TOTP doğrulama (demo bypass koşullu)
+- İsteğe bağlı HTTPS zorunluluğu (reverse-proxy arkasında)
+- Developer bypass token (sadece demo ortamı)
 
-Sistem, şüpheli işlem tespitinde dinamik karşı önlem ve anlık uyarı mekanizmaları uygulamalıdır. Bu durumlarda sistem ilgili birimleri bilgilendirmelidir.
+### 4.3 Maintainability
 
----
+- Strategy/Adapter/Observer/Command/Template/Singleton desenleri ile modülerlik
 
-## **4.4 Harici Entegrasyon Gereksinimleri (External Interface Requirements)**
+## 5. Traceability (Kod ile eşleme)
 
-### **EXT-01 Finansal Servis Entegrasyonları**
-
-Sistem, üçüncü taraf fiat bankacılık API'leri ve kripto para sağlayıcıları ile güvenli API tabanlı entegrasyon gerçekleştirmelidir.
-
-### **EXT-02 Kamu Güvenliği ve Kamu Hizmetleri Entegrasyonu**
-
-Sistem, acil durum, güvenlik ihlali veya arıza gibi olaylarda kamu güvenliği birimleri ve kamu hizmetleri kuruluşlarına gerçek zamanlı bildirim gönderebilmelidir.
-
----
-
-## **4.5 Özet Gereksinim Tablosu**
-
-| Kategori            | Kod    | Gereksinim                                     |
-| ------------------- | ------ | ---------------------------------------------- |
-| Fonksiyonel         | FR-01  | Fiat ve kripto ödeme işlemleri                 |
-| Fonksiyonel         | FR-02  | Güvenli MFA giriş                              |
-| Fonksiyonel         | FR-03  | Şehir hizmetlerinin görüntülenmesi ve ödenmesi |
-| Fonksiyonel         | FR-04  | İşlem loglarının tutulması                     |
-| Fonksiyonel         | FR-05  | Şehir otomasyon rutinlerinin yönetimi          |
-| Fonksiyonel         | FR-06  | Sensör olaylarının işlenmesi                   |
-| Fonksiyonel Olmayan | NFR-01 | Uçtan uca şifreleme                            |
-| Fonksiyonel Olmayan | NFR-02 | Hibrit bulut entegrasyonu                      |
-| Fonksiyonel Olmayan | NFR-03 | 10.000 eşzamanlı kullanıcı desteği             |
-| Fonksiyonel Olmayan | NFR-04 | Modüler mimari & tasarım kalıpları             |
-| Güvenlik            | SEC-01 | Kuantuma dayanıklı şifreleme                   |
-| Güvenlik            | SEC-02 | Şüpheli işlem karşı önlemleri                  |
-| Harici Entegrasyon  | EXT-01 | Banka/kripto API entegrasyonu                  |
-| Harici Entegrasyon  | EXT-02 | Kamu birimleri bildirim entegrasyonu           |
+- API uçları: `src/com/digibank/api/ApiServer.java`
+- Kimlik: `src/com/digibank/service/AuthenticationService.java`
+- Ödeme: `src/com/digibank/service/PaymentService.java`
+- DB katmanı: `src/com/digibank/service/UserRepository.java`, `src/com/digibank/service/TransactionRepository.java`
+- GUI: `gui/app.py`
+- Dağıtım: `docker-compose.yml`
