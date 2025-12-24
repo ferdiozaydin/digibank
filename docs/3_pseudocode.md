@@ -108,3 +108,20 @@ public class BankingNotificationService implements Observer {
     }
 }
 ```
+
+## 3.5. Yönetici (Admin) İşlemleri
+
+**Senaryo:** Yöneticiler, `ApiServer` üzerindeki endpoint'leri kullanarak kullanıcıları ve işlemleri yönetir (`TransactionCreateHandler`, `UserItemHandler` vb.).
+
+```java
+public class UserItemHandler {
+   public void handle(Exchange t) {
+       if ("PUT".equals(t.getMethod())) {
+           // Kullanıcı rolü veya bakiyesi güncelle
+           userRepository.upsert(updatedUser);
+       } else if ("DELETE".equals(t.getMethod())) {
+           userRepository.deleteByUsername(username);
+       }
+   }
+}
+```

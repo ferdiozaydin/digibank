@@ -6,62 +6,64 @@ graph TD
     subgraph "DigiBank & SmartCity Project Structure"
         Root["/digibank-root"]
         
-        subgraph "src (Source Code)"
-            MainApp["MainApplication.java"]
+        subgraph "src (Java Backend)"
+            MainApp["com.digibank.Main"]
             
-            subgraph "com.digibank.core"
-                Auth["auth/"]
-                Config["config/"]
-                Utils["utils/"]
+            subgraph "com.digibank.api"
+                ApiSrv["ApiServer.java (HttpServer)"]
+                Handlers["Handlers (Login, Bill, Pay, Admin...)"]
             end
             
             subgraph "com.digibank.service"
-                BankSvc["BankingService.java"]
-                CitySvc["CityController.java"]
-                NotifSvc["NotificationService.java"]
-                PaymentSvc["PaymentProcessor.java"]
+                AuthSvc["AuthenticationService"]
+                PaySvc["PaymentService"]
+                CitySvc["CityController"]
+                SensorSvc["SensorSystem"]
+                Repos["TxRepository / UserRepository"]
+            end
+            
+            subgraph "com.digibank.patterns"
+                Cmd["command/ (Command Pattern)"]
+                Obs["observer/ (Observer Pattern)"]
+                Strat["strategy/ (Strategy Pattern)"]
+                Adpt["adapter/ (Adapter Pattern)"]
+                Sing["singleton/ (AuditLogger)"]
             end
             
             subgraph "com.digibank.model"
-                UserClass["User.java"]
-                AccountClass["Account.java"]
-                SensorClass["Sensor.java"]
-                TxnClass["Transaction.java"]
-            end
-            
-            subgraph "com.digibank.api (Controllers)"
-                UserCtrl["UserController"]
-                BankCtrl["BankingController"]
-                CityCtrl["CityControllerAPI"]
-            end
-            
-            subgraph "com.digibank.infrastructure"
-                Repos["repository/ (JPA)"]
-                ExtAPI["external/ (BankAPI, BlockchainAdapter)"]
+                UserClass["User"]
+                TxClass["Transaction"]
+                BillClass["GovernmentBill"]
             end
         end
 
-        subgraph "resources"
-            AppProp["application.properties"]
-            LogConfig["logback.xml"]
-            K8s["k8s-deployment.yaml"]
+        subgraph "gui (Python Frontend)"
+            AppPy["app.py (Flask)"]
+            Tmpl["templates/ (HTML)"]
+            Static["static/ (CSS/JS)"]
         end
-
-        subgraph "frontend"
-            Mobile["react-native-app/"]
-            Web["react-dashboard/"]
+        
+        subgraph "docs & output"
+             Docs["docs/ (.md, .mmd)"]
+             Txt["txt/ (Exports)"]
+             Dk["Dockerfile"]
         end
 
     end
 
     Root --> src
+    Root --> gui
+    Root --> docs
+    
     src --> MainApp
-    src --> MainPackages
+    MainApp --> ApiSrv
+    MainApp --> CitySvc
     
-    MainApp --> com.digibank.core
-    MainApp --> com.digibank.service
-    MainApp --> com.digibank.api
+    ApiSrv --> Handlers
+    Handlers --> AuthSvc
+    Handlers --> PaySvc
     
-    com.digibank.api --> com.digibank.service
-    com.digibank.service --> com.digibank.model
-    com.digibank.service --> com.digibank.infrastructure
+    PaySvc --> Strat
+    PaySvc --> Adpt
+    CitySvc --> Cmd
+    CitySvc --> Obs

@@ -4,49 +4,30 @@ config:
 ---
 erDiagram
 
-    %% Kullanıcı ve Kimlik Yönetimi
+    %% Kullanıcı (In-Memory Prototype Model)
     USERS {
         bigint id PK
         string username
-        string email
         string password_hash
-        string phone_number
-        string role "Resident, Admin, CityOperator"
-        datetime created_at
+        string totp_secret
+        string role "ADMIN, RESIDENT"
+        decimal fiat_balance
+        decimal crypto_balance
     }
-
-    ROLES {
-        int id PK
-        string name
-        string permissions
-    }
-
-    USERS ||--o{ ROLES : "has"
 
     %% Bankacılık Modülü
-    ACCOUNTS {
-        bigint id PK
-        bigint user_id FK
-        string account_type "FIAT, CRYPTO"
-        string currency "USD, TRY, BTC, ETH"
-        decimal balance
-        string iban_or_wallet_address
-        string status
-    }
-
     TRANSACTIONS {
         bigint id PK
-        bigint source_account_id FK
-        bigint target_account_id FK
+        bigint user_id FK
+        string description
+        string bank_code
+        string address
         decimal amount
-        string currency
-        datetime timestamp
-        string status "PENDING, SUCCESS, FAILED"
-        string type "TRANSFER, PAYMENT, BILL"
+        datetime record_date
+        string status "BASARILI, BASARISIZ"
     }
 
-    USERS ||--o{ ACCOUNTS : "owns"
-    ACCOUNTS ||--o{ TRANSACTIONS : "initiates"
+    USERS ||--o{ TRANSACTIONS : "initiates"
 
     %% Akıllı Şehir Modülü
     SENSORS {

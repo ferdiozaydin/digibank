@@ -32,6 +32,12 @@ Yönetici `/api/metrics` ve `/api/forecast` uçlarıyla örnek metrik ve tahmin 
 
 ---
 
+### FR-07 Yönetici Paneli (Admin Dashboard)
+
+Yöneticiler `/api/users` ve `/api/transactions` uçları üzerinden tüm kullanıcı ve işlemleri listeleyebilmeli, arama yapabilmeli (`/search`), yeni kayıt oluşturabilmeli (Register/Create) ve mevcut kayıtları düzenleyip silebilir (`/item`). Ayrıca `/api/transfer` ile yöneticiler (veya kullanıcılar) doğrudan para transferi yapabilmelidir.
+
+---
+
 ## **Fonksiyonel Olmayan Gereksinimler (Non-Functional Requirements)**
 
 ### **NFR-01 Dağıtım ve Çalıştırma**
@@ -90,6 +96,7 @@ Sensör kaynaklı olaylar EmergencyService ve PublicUtilityService gözlemcileri
 | Fonksiyonel         | FR-04  | CityController rutinleri ve komut kuyruğu        |
 | Fonksiyonel         | FR-05  | SensorSystem olay bildirimi (acil/kamu/bildirim) |
 | Fonksiyonel         | FR-06  | TXT ihracat ve metrik/forecast uçları            |
+| Fonksiyonel         | FR-07  | Admin Dashboard (Kullanıcı/İşlem CRUD, Transfer) |
 | Fonksiyonel Olmayan | NFR-01 | Tek JVM + Docker ile hafif kurulum               |
 | Fonksiyonel Olmayan | NFR-02 | Bellek içi saklama, TXT ihracatı                 |
 | Fonksiyonel Olmayan | NFR-03 | Demo performans (<300ms hedef)                   |

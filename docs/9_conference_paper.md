@@ -17,7 +17,7 @@ Smart City services need reliable, low-latency payments and responsive event han
 
 ### **A. Core Components (implemented)**
 
-1. **ApiServer**: Embedded HttpServer exposing `/api/login`, `/api/bills`, `/api/pay`, `/api/metrics`, `/api/forecast`, `/api/home/*`, and `/api/export`.
+1. **ApiServer**: Embedded HttpServer exposing `/api/login`, `/api/bills`, `/api/pay`, `/api/metrics`, `/api/forecast`, `/api/home/*`, `/api/export`, and admin endpoints (`/api/users/*`, `/api/transactions/*`).
 2. **AuthenticationService**: SHA3-512 + per-user salt, TOTP verification (with clock skew tolerance) and temporary lock/backoff after failed attempts.
 3. **PaymentService**: Strategy pattern for fiat (FiatPaymentStrategy) and Adapter pattern for crypto (BtcAdapter, EthAdapter, StablecoinAdapter), persisting results to TransactionRepository with AuditLogger traces.
 4. **SmartGovernmentService**: Retrieves sample bills and delegates to PaymentService (fiat or crypto) to mark bills as paid.

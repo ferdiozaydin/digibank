@@ -79,6 +79,7 @@ Tek JVM üzerinde çalışan, MFA’lı giriş, fatura sorgulama/ödeme, cihaz/a
 - FR-04: `/api/metrics` ve `/api/forecast` ile demo metrik ve tahmin üretimi.
 - FR-05: `/api/home/*` ve komut kuyruğu ile cihaz/altyapı kontrolü.
 - FR-06: Sensör olaylarının Observer ile Emergency/PublicUtility/BankingNotification servislerine iletimi.
+- FR-07: Yönetici tarafından `/api/users` ve `/api/transactions` ile tam veri yönteti (CRUD).
 
 ### **3.3. Fonksiyonel Olmayan Gereksinimler**
 
@@ -104,7 +105,7 @@ Tek JVM içinde gömülü HttpServer barındıran bir monolit. Servis katmanlar�
 
 Güncel [docs/2_uml_c4.mmd](2_uml_c4.mmd) konteyner diyagramı:
 
-- Container: ApiServer (REST uçları), AuthenticationService, UserRepository, PaymentService + CryptoAdapter’lar, TransactionRepository, SmartGovernmentService, CityController, SensorSystem, CommandInvoker, HomeDeviceController, InfrastructureController, PredictiveAnalyticsService, AuditLogger/TXT Export.
+- Container: ApiServer (REST uçları + Admin Endpointler), AuthenticationService, UserRepository, PaymentService + CryptoAdapter’lar, TransactionRepository, SmartGovernmentService, CityController, SensorSystem, CommandInvoker, HomeDeviceController, InfrastructureController, PredictiveAnalyticsService, AuditLogger/TXT Export.
 
 ### **4.3. Veri ve Depolama**
 
@@ -182,7 +183,7 @@ public void runDailyOps() {
 
 ## **6. Kullanıcı Arayüzü ve Deneyimi (UI/UX)**
 
-`gui/` dizininde Flask tabanlı basit bir panel ve HTML şablonları (dashboard, login, cards vb.) yer alır. HTTP uçları Java tarafında olduğundan, demo UI sadece görsel/akış referansı sağlar; gerçek veri bağlama yapılmamıştır.
+`gui/` dizininde Flask tabanlı basit bir panel ve HTML şablonları (dashboard, login, cards vb.) yer alır. HTTP uçları Java tarafında olduğundan, Python GUI `requests` kütüphanesi ile Java REST API'ye bağlanarak (Login, Fatura, Dashboard, Komutlar) canlı veri ile çalışır.
 
 ---
 
