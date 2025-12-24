@@ -1074,7 +1074,7 @@ def transactions():
 
 @app.route('/transactions/download')
 def transactions_download():
-    """Transactions listesini CSV olarak indirir (q parametresi desteklenir)."""
+    """Transactions listesini Excel (XLSX) olarak indirir (q parametresi desteklenir)."""
     q = (request.args.get('q') or '').strip()
 
     try:
@@ -1101,11 +1101,14 @@ def transactions_download():
     except Exception:
         txs = []
 
-    out = io.StringIO()
-    writer = csv.writer(out)
-    writer.writerow(["id", "fullName", "amount", "bankCode", "address", "recordDate"])
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "transactions"
+    ws.append(["id", "fullName", "amount", "bankCode", "address", "recordDate"])
     for tx in txs:
-        writer.writerow(
+        ws.append(
             [
                 tx.get("id", ""),
                 tx.get("fullName", ""),
@@ -1116,11 +1119,115 @@ def transactions_download():
             ]
         )
 
-    file_buf = io.BytesIO(out.getvalue().encode("utf-8"))
+    file_buf = io.BytesIO()
+    wb.save(file_buf)
+    file_buf.seek(0)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_q = (q[:40] if q else "all")
-    filename = f"digibank_transactions_{safe_q}_{stamp}.csv"
-    return send_file(file_buf, as_attachment=True, download_name=filename, mimetype='text/csv')
+    filename = f"digibank_transactions_{safe_q}_{stamp}.xlsx"
+    return send_file(
+        file_buf,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+
+@app.route('/transactions/download/pdf')
+def transactions_download_pdf():
+    """Transactions listesini PDF olarak indirir (q parametresi desteklenir)."""
+    q = (request.args.get('q') or '').strip()
+
+    try:
+        if q:
+            resp = requests.get(
+                f"{API_URL}/api/transactions/search",
+                params={"q": q},
+                headers=_auth_headers(),
+                timeout=5,
+            )
+        else:
+            resp = requests.get(f"{API_URL}/api/transactions", headers=_auth_headers(), timeout=5)
+
+        redir = _handle_unauthorized(resp, next_path=request.path)
+        if redir:
+            return redir
+
+        txs = resp.json() if resp.status_code == 200 else []
+    except Exception:
+        txs = []
+
+    try:
+        txs = [tx for tx in (txs or []) if _is_valid_manual_tx(tx)]
+    except Exception:
+        txs = []
+
+    def _ascii_tr(s):
+        s = "" if s is None else str(s)
+        table = str.maketrans({
+            "ç": "c",
+            "Ç": "C",
+            "ğ": "g",
+            "Ğ": "G",
+            "ı": "i",
+            "İ": "I",
+            "ö": "o",
+            "Ö": "O",
+            "ş": "s",
+            "Ş": "S",
+            "ü": "u",
+            "Ü": "U",
+        })
+        return s.translate(table)
+
+    from fpdf import FPDF
+
+    pdf = FPDF(orientation="L", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=12)
+    pdf.add_page()
+
+    pdf.set_font("Helvetica", "B", 14)
+    title = f"DigiBank - Islem Listesi ({_ascii_tr(q) if q else 'all'})"
+    pdf.cell(0, 10, title, ln=True)
+
+    headers = ["ID", "Ad Soyad", "Para", "Banka", "Adres", "Tarih"]
+    widths = [16, 55, 25, 30, 120, 28]
+
+    pdf.set_font("Helvetica", "B", 10)
+    for h, w in zip(headers, widths):
+        pdf.cell(w, 8, _ascii_tr(h), border=1)
+    pdf.ln(8)
+
+    pdf.set_font("Helvetica", "", 9)
+    for tx in txs:
+        row = [
+            tx.get("id", ""),
+            tx.get("fullName", ""),
+            tx.get("amount", ""),
+            tx.get("bankCode", ""),
+            tx.get("address", ""),
+            tx.get("recordDate", ""),
+        ]
+        row = [_ascii_tr(v) for v in row]
+
+        # Basit satır: adresi çok uzunsa kes.
+        if len(row[4]) > 80:
+            row[4] = row[4][:77] + "..."
+
+        for v, w in zip(row, widths):
+            pdf.cell(w, 7, v, border=1)
+        pdf.ln(7)
+
+    raw_pdf = pdf.output(dest="S")
+    if isinstance(raw_pdf, (bytes, bytearray)):
+        pdf_bytes = bytes(raw_pdf)
+    else:
+        pdf_bytes = str(raw_pdf).encode("latin-1", errors="replace")
+    file_buf = io.BytesIO(pdf_bytes)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_q = (q[:40] if q else "all")
+    filename = f"digibank_transactions_{safe_q}_{stamp}.pdf"
+    return send_file(file_buf, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)

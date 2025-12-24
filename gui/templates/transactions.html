@@ -9,7 +9,6 @@
     <div class="card-top">
       <h3>Digibank - İşlem Listesi</h3>
       <div class="pill-row">
-        <span class="pill">Admin: tümü, Resident: kendi</span>
         <button class="btn small" type="button" id="openTxCreate">Yeni İşlem</button>
       </div>
     </div>
@@ -24,7 +23,8 @@
         style="flex:1"
       />
       <button class="btn" type="submit">Ara</button>
-      <a class="btn ghost" href="{{ url_for('transactions_download', q=(q or '')) }}">Listeyi İndir (CSV)</a>
+      <a class="btn ghost" href="{{ url_for('transactions_download', q=(q or '')) }}">Excel İndir</a>
+      <a class="btn ghost" href="{{ url_for('transactions_download_pdf', q=(q or '')) }}">PDF İndir</a>
     </form>
 
     <div class="table-responsive">
