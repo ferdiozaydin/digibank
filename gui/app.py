@@ -158,6 +158,36 @@ def _daily_rng(salt: str = "") -> random.Random:
     return random.Random(f"{day_seed}:{user_seed}:{salt}")
 
 
+def _is_valid_manual_tx(tx) -> bool:
+    """Transactions sayfasındaki tablo sadece manuel kayıt alanlarını gösterir.
+
+    Bu yüzden eski model (description/userId) kayıtlar veya tamamen boş placeholder
+    kayıtlar tabloda görünmesin.
+    """
+    if not isinstance(tx, dict):
+        return True
+
+    tx_id = tx.get("id")
+    if tx_id is None or str(tx_id).strip() == "":
+        return False
+
+    full_name = str(tx.get("fullName") or "").strip()
+    bank_code = str(tx.get("bankCode") or "").strip()
+    address = str(tx.get("address") or "").strip()
+    record_date = str(tx.get("recordDate") or "").strip()
+    amount = tx.get("amount")
+
+    if not (full_name and bank_code and address and record_date):
+        return False
+
+    if amount is None:
+        return False
+    if isinstance(amount, str) and amount.strip() == "":
+        return False
+
+    return True
+
+
 def _try_parse_date(date_str: str):
     if not date_str:
         return None
@@ -1002,6 +1032,11 @@ def transactions():
         if redir:
             return redir
         txs = resp.json() if resp.status_code == 200 else []
+    except Exception:
+        txs = []
+
+    try:
+        txs = [tx for tx in (txs or []) if _is_valid_manual_tx(tx)]
     except Exception:
         txs = []
 
