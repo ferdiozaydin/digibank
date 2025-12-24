@@ -2,6 +2,11 @@ package com.digibank.util;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.List;
 
 public class SimpleJson {
@@ -10,6 +15,9 @@ public class SimpleJson {
         if (obj == null) return "null";
         if (obj instanceof Number || obj instanceof Boolean) return obj.toString();
         if (obj instanceof String) return "\"" + escape((String)obj) + "\"";
+        if (obj instanceof LocalDate || obj instanceof LocalDateTime || obj instanceof ZonedDateTime || obj instanceof OffsetDateTime || obj instanceof Instant) {
+            return "\"" + obj.toString() + "\"";
+        }
         if (obj instanceof List) {
             StringBuilder sb = new StringBuilder();
             sb.append("[");

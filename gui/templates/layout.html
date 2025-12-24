@@ -16,11 +16,11 @@
   <body>
     <header>
       <nav class="container">
-        <div class="logo">DigiBank Beykent</div>
+        <div class="logo">digibank-city</div>
         <div class="nav-links">
           <div class="dropdown">
             <button
-              class="drop-trigger {{ 'active' if request.path == '/' or request.path.startswith('/transfer') or request.path.startswith('/cards') or request.path.startswith('/fx') or request.path.startswith('/users') or request.path.startswith('/transactions') else '' }}"
+              class="drop-trigger {{ 'active' if request.path == '/' or request.path.startswith('/transfer') or request.path.startswith('/cards') or request.path.startswith('/fx') or request.path.startswith('/transactions') else '' }}"
               type="button"
             >
               Digibank
@@ -45,12 +45,6 @@
                 href="{{ url_for('fx_swap') }}"
                 class="{{ 'active' if request.path.startswith('/fx') else '' }}"
                 >Döviz / Swap</a
-              >
-
-              <a
-                href="{{ url_for('users') }}"
-                class="{{ 'active' if request.path.startswith('/users') else '' }}"
-                >Kullanıcılar</a
               >
               <a
                 href="{{ url_for('transactions') }}"
@@ -83,7 +77,7 @@
 
           <div class="dropdown">
             <button
-              class="drop-trigger {{ 'active' if request.path.startswith('/settings') or request.path.startswith('/performance') else '' }}"
+              class="drop-trigger {{ 'active' if request.path.startswith('/settings') or request.path.startswith('/performance') or request.path.startswith('/users') else '' }}"
               type="button"
             >
               Ayarlar
@@ -93,6 +87,11 @@
                 href="{{ url_for('settings') }}"
                 class="{{ 'active' if request.path.startswith('/settings') else '' }}"
                 >Genel Ayarlar</a
+              >
+              <a
+                href="{{ url_for('users') }}"
+                class="{{ 'active' if request.path.startswith('/users') else '' }}"
+                >Kullanıcılar</a
               >
               <a
                 href="{{ url_for('performance') }}"

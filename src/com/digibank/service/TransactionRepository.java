@@ -4,6 +4,7 @@ import com.digibank.model.Transaction;
 import com.digibank.patterns.singleton.AuditLogger;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -15,6 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,16 +42,39 @@ public class TransactionRepository {
     public Transaction create(Transaction tx) {
         if (tx == null) return null;
         if (dbEnabled && conn != null) {
-            String sql = "INSERT INTO transactions(user_id, description, amount, status) VALUES (?,?,?,?) RETURNING id, created_at";
+            String sql = "INSERT INTO transactions(user_id, description, amount, status, full_name, bank_code, address, record_date) " +
+                "VALUES (?,?,?,?,?,?,?,?) RETURNING id, created_at";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 if (tx.getUserId() != null) {
                     ps.setLong(1, tx.getUserId());
                 } else {
                     ps.setObject(1, null);
                 }
-                ps.setString(2, tx.getDescription());
+
+                String desc = tx.getDescription();
+                if ((desc == null || desc.isBlank()) && (tx.getFullName() != null || tx.getBankCode() != null)) {
+                    StringBuilder d = new StringBuilder();
+                    if (tx.getFullName() != null) d.append(tx.getFullName());
+                    if (tx.getBankCode() != null && !tx.getBankCode().isBlank()) {
+                        if (d.length() > 0) d.append(" | ");
+                        d.append(tx.getBankCode());
+                    }
+                    if (tx.getAddress() != null && !tx.getAddress().isBlank()) {
+                        if (d.length() > 0) d.append(" | ");
+                        d.append(tx.getAddress());
+                    }
+                    desc = d.toString();
+                }
+
+                ps.setString(2, desc);
                 ps.setBigDecimal(3, tx.getAmount());
-                ps.setString(4, tx.getStatus());
+                ps.setString(4, (tx.getStatus() == null || tx.getStatus().isBlank()) ? "BASARILI" : tx.getStatus());
+                ps.setString(5, tx.getFullName());
+                ps.setString(6, tx.getBankCode());
+                ps.setString(7, tx.getAddress());
+                LocalDate rd = tx.getRecordDate();
+                if (rd != null) ps.setDate(8, Date.valueOf(rd));
+                else ps.setObject(8, null);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         tx.setId(rs.getLong("id"));
@@ -80,17 +105,39 @@ public class TransactionRepository {
     public boolean update(Transaction tx) {
         if (tx == null || tx.getId() == null) return false;
         if (dbEnabled && conn != null) {
-            String sql = "UPDATE transactions SET user_id=?, description=?, amount=?, status=? WHERE id=?";
+            String sql = "UPDATE transactions SET user_id=?, description=?, amount=?, status=?, full_name=?, bank_code=?, address=?, record_date=? WHERE id=?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 if (tx.getUserId() != null) {
                     ps.setLong(1, tx.getUserId());
                 } else {
                     ps.setObject(1, null);
                 }
-                ps.setString(2, tx.getDescription());
+
+                String desc = tx.getDescription();
+                if ((desc == null || desc.isBlank()) && (tx.getFullName() != null || tx.getBankCode() != null)) {
+                    StringBuilder d = new StringBuilder();
+                    if (tx.getFullName() != null) d.append(tx.getFullName());
+                    if (tx.getBankCode() != null && !tx.getBankCode().isBlank()) {
+                        if (d.length() > 0) d.append(" | ");
+                        d.append(tx.getBankCode());
+                    }
+                    if (tx.getAddress() != null && !tx.getAddress().isBlank()) {
+                        if (d.length() > 0) d.append(" | ");
+                        d.append(tx.getAddress());
+                    }
+                    desc = d.toString();
+                }
+
+                ps.setString(2, desc);
                 ps.setBigDecimal(3, tx.getAmount());
-                ps.setString(4, tx.getStatus());
-                ps.setLong(5, tx.getId());
+                ps.setString(4, (tx.getStatus() == null || tx.getStatus().isBlank()) ? "BASARILI" : tx.getStatus());
+                ps.setString(5, tx.getFullName());
+                ps.setString(6, tx.getBankCode());
+                ps.setString(7, tx.getAddress());
+                LocalDate rd = tx.getRecordDate();
+                if (rd != null) ps.setDate(8, Date.valueOf(rd));
+                else ps.setObject(8, null);
+                ps.setLong(9, tx.getId());
                 int updated = ps.executeUpdate();
                 if (updated > 0) {
                     replaceInStore(tx);
@@ -127,7 +174,7 @@ public class TransactionRepository {
 
     public Transaction findById(long id) {
         if (dbEnabled && conn != null) {
-            String sql = "SELECT id, user_id, description, amount, status, created_at FROM transactions WHERE id=?";
+            String sql = "SELECT id, user_id, description, amount, status, created_at, full_name, bank_code, address, record_date FROM transactions WHERE id=?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setLong(1, id);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -149,7 +196,7 @@ public class TransactionRepository {
 
     public List<Transaction> findAll() {
         if (dbEnabled && conn != null) {
-            return selectList("SELECT id, user_id, description, amount, status, created_at FROM transactions ORDER BY id DESC", null);
+            return selectList("SELECT id, user_id, description, amount, status, created_at, full_name, bank_code, address, record_date FROM transactions ORDER BY id DESC", null);
         }
         return new ArrayList<>(store);
     }
@@ -157,7 +204,7 @@ public class TransactionRepository {
     public List<Transaction> findByUserId(Long userId) {
         if (userId == null) return new ArrayList<>();
         if (dbEnabled && conn != null) {
-            return selectList("SELECT id, user_id, description, amount, status, created_at FROM transactions WHERE user_id=? ORDER BY id DESC", userId);
+            return selectList("SELECT id, user_id, description, amount, status, created_at, full_name, bank_code, address, record_date FROM transactions WHERE user_id=? ORDER BY id DESC", userId);
         }
         List<Transaction> out = new ArrayList<>();
         synchronized (store) {
@@ -176,25 +223,45 @@ public class TransactionRepository {
         if (q == null) q = "";
         q = q.trim();
         if (dbEnabled && conn != null) {
+            String like = "%" + q + "%";
+            List<Transaction> out = new ArrayList<>();
+            String sql;
             if (userId != null) {
-                return selectListWithQuery(
-                    "SELECT id, user_id, description, amount, status, created_at FROM transactions WHERE user_id=? AND description ILIKE ? ORDER BY id DESC",
-                    userId,
-                    "%" + q + "%"
-                );
+                sql = "SELECT id, user_id, description, amount, status, created_at, full_name, bank_code, address, record_date " +
+                    "FROM transactions WHERE user_id=? AND (description ILIKE ? OR full_name ILIKE ? OR bank_code ILIKE ? OR address ILIKE ?) ORDER BY id DESC";
+            } else {
+                sql = "SELECT id, user_id, description, amount, status, created_at, full_name, bank_code, address, record_date " +
+                    "FROM transactions WHERE (description ILIKE ? OR full_name ILIKE ? OR bank_code ILIKE ? OR address ILIKE ?) ORDER BY id DESC";
             }
-            return selectListWithQuery(
-                "SELECT id, user_id, description, amount, status, created_at FROM transactions WHERE description ILIKE ? ORDER BY id DESC",
-                null,
-                "%" + q + "%"
-            );
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                int idx = 1;
+                if (userId != null) {
+                    ps.setLong(idx++, userId);
+                }
+                ps.setString(idx++, like);
+                ps.setString(idx++, like);
+                ps.setString(idx++, like);
+                ps.setString(idx, like);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        out.add(mapRow(rs));
+                    }
+                }
+            } catch (SQLException e) {
+                AuditLogger.getInstance().logError("Transaction search basarisiz", e);
+            }
+            return out;
         }
         List<Transaction> out = new ArrayList<>();
         synchronized (store) {
             for (Transaction tx : store) {
                 if (userId != null && (tx.getUserId() == null || !tx.getUserId().equals(userId))) continue;
                 String d = tx.getDescription() != null ? tx.getDescription() : "";
-                if (d.toLowerCase().contains(q.toLowerCase())) out.add(tx);
+                String fn = tx.getFullName() != null ? tx.getFullName() : "";
+                String bc = tx.getBankCode() != null ? tx.getBankCode() : "";
+                String ad = tx.getAddress() != null ? tx.getAddress() : "";
+                String hay = (d + " " + fn + " " + bc + " " + ad).toLowerCase();
+                if (hay.contains(q.toLowerCase())) out.add(tx);
             }
         }
         return out;
@@ -237,8 +304,18 @@ public class TransactionRepository {
                 "description TEXT, " +
                 "amount NUMERIC, " +
                 "status VARCHAR(32), " +
+                "full_name TEXT, " +
+                "bank_code VARCHAR(64), " +
+                "address TEXT, " +
+                "record_date DATE, " +
                 "created_at TIMESTAMP DEFAULT NOW()" +
                 ");");
+
+            // Var olan tablolar için hafif migration
+            conn.createStatement().executeUpdate("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS full_name TEXT;");
+            conn.createStatement().executeUpdate("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bank_code VARCHAR(64);");
+            conn.createStatement().executeUpdate("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS address TEXT;");
+            conn.createStatement().executeUpdate("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS record_date DATE;");
             dbEnabled = true;
             AuditLogger.getInstance().log("PostgreSQL baglantisi acildi ve tablo hazir.");
         } catch (Exception e) {
@@ -249,7 +326,7 @@ public class TransactionRepository {
 
     private void preloadStore() {
         if (!dbEnabled || conn == null) return;
-        try (PreparedStatement ps = conn.prepareStatement("SELECT id, user_id, description, amount, status, created_at FROM transactions ORDER BY id DESC LIMIT 200")) {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT id, user_id, description, amount, status, created_at, full_name, bank_code, address, record_date FROM transactions ORDER BY id DESC LIMIT 200")) {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     store.add(mapRow(rs));
@@ -269,7 +346,17 @@ public class TransactionRepository {
         String status = rs.getString("status");
         Timestamp ts = rs.getTimestamp("created_at");
         LocalDateTime ldt = ts != null ? ts.toLocalDateTime() : null;
-        return new Transaction(id, uid, desc, amount, status, ldt);
+        Transaction tx = new Transaction(id, uid, desc, amount, status, ldt);
+        try {
+            tx.setFullName(rs.getString("full_name"));
+            tx.setBankCode(rs.getString("bank_code"));
+            tx.setAddress(rs.getString("address"));
+            Date rd = rs.getDate("record_date");
+            if (rd != null) tx.setRecordDate(rd.toLocalDate());
+        } catch (SQLException ignored) {
+            // Eski şemada kolonlar yoksa sessiz geç
+        }
+        return tx;
     }
 
     private List<Transaction> selectList(String sql, Long userId) {

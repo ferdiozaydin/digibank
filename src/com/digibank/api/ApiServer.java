@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.math.BigDecimal;
 import java.util.Scanner;
 import java.nio.file.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.net.URLDecoder;
@@ -303,10 +304,28 @@ public class ApiServer {
             if ("PUT".equals(t.getRequestMethod())) {
                 if (!requireRole(t, authed, "ADMIN")) return;
                 String body = readBody(t.getRequestBody());
+
+                // Yeni alanlar (manuel kayıt)
+                String fullName = extractValue(body, "fullName");
+                String bankCode = extractValue(body, "bankCode");
+                String address = extractValue(body, "address");
+                String recordDateStr = extractValue(body, "recordDate");
+                if (fullName != null) tx.setFullName(fullName);
+                if (bankCode != null) tx.setBankCode(bankCode);
+                if (address != null) tx.setAddress(address);
+                if (recordDateStr != null && !recordDateStr.isEmpty()) {
+                    try {
+                        tx.setRecordDate(LocalDate.parse(recordDateStr));
+                    } catch (Exception e) {
+                        sendResponse(t, 400, "{\"hata\":\"Gecersiz recordDate\"}");
+                        return;
+                    }
+                }
+
+                // Eski alanlar (geri uyumluluk)
                 String desc = extractValue(body, "description");
                 String amountStr = extractValue(body, "amount");
                 String status = extractValue(body, "status");
-
                 if (desc != null) tx.setDescription(desc);
                 if (status != null) tx.setStatus(status);
                 if (amountStr != null && !amountStr.isEmpty()) {
@@ -338,9 +357,46 @@ public class ApiServer {
                 return;
             }
             String body = readBody(t.getRequestBody());
+            String amountStr = extractValue(body, "amount");
+
+            // Yeni model (transactions sayfası)
+            String fullName = extractValue(body, "fullName");
+            String bankCode = extractValue(body, "bankCode");
+            String address = extractValue(body, "address");
+            String recordDateStr = extractValue(body, "recordDate");
+
+            boolean hasNewModel = fullName != null || bankCode != null || address != null || recordDateStr != null;
+            if (hasNewModel) {
+                if (fullName == null || amountStr == null || bankCode == null || address == null) {
+                    sendResponse(t, 400, "{\"hata\":\"Eksik bilgiler\"}");
+                    return;
+                }
+                BigDecimal amount;
+                try {
+                    amount = new BigDecimal(amountStr);
+                } catch (Exception e) {
+                    sendResponse(t, 400, "{\"hata\":\"Gecersiz amount\"}");
+                    return;
+                }
+                LocalDate recordDate = null;
+                if (recordDateStr != null && !recordDateStr.isEmpty()) {
+                    try {
+                        recordDate = LocalDate.parse(recordDateStr);
+                    } catch (Exception e) {
+                        sendResponse(t, 400, "{\"hata\":\"Gecersiz recordDate\"}");
+                        return;
+                    }
+                }
+                if (recordDate == null) recordDate = LocalDate.now();
+
+                Transaction created = transactionRepository.create(new Transaction(null, fullName, amount, bankCode, address, recordDate));
+                sendResponse(t, 201, SimpleJson.toJson(created));
+                return;
+            }
+
+            // Eski model (geri uyumluluk)
             String userIdStr = extractValue(body, "userId");
             String desc = extractValue(body, "description");
-            String amountStr = extractValue(body, "amount");
             String status = extractValue(body, "status");
             if (userIdStr == null || amountStr == null || desc == null) {
                 sendResponse(t, 400, "{\"hata\":\"Eksik bilgiler\"}");

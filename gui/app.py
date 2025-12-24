@@ -113,6 +113,19 @@ def _auth_headers():
     return {}
 
 
+def _handle_unauthorized(resp, next_path: str = "/"):
+    """API 401 dönerse (örn: backend yeniden başladı), GUI oturumunu sıfırla ve login'e yönlendir."""
+    try:
+        status = getattr(resp, "status_code", None)
+    except Exception:
+        status = None
+    if status == 401:
+        session.clear()
+        flash('Oturum doğrulanamadı (token geçersiz/eksik). Lütfen tekrar giriş yapın.', 'error')
+        return redirect(url_for('login', next=next_path))
+    return None
+
+
 def _get_preferences() -> dict:
     prefs = session.get('preferences') or {}
     merged = DEFAULT_PREFERENCES.copy()
@@ -886,17 +899,27 @@ def transactions():
         action = (request.form.get('action') or 'create').strip().lower()
 
         if action == 'create':
-            user_id = (request.form.get('userId') or '').strip()
-            desc = (request.form.get('description') or '').strip()
+            full_name = (request.form.get('fullName') or '').strip()
             amount = (request.form.get('amount') or '').strip()
-            status = (request.form.get('status') or 'BASARILI').strip().upper() or 'BASARILI'
+            bank_code = (request.form.get('bankCode') or '').strip()
+            address = (request.form.get('address') or '').strip()
+            record_date = (request.form.get('recordDate') or '').strip()
             try:
                 resp = requests.post(
                     f"{API_URL}/api/transactions/create",
-                    json={"userId": str(user_id), "description": desc, "amount": str(amount), "status": status},
+                    json={
+                        "fullName": full_name,
+                        "amount": str(amount),
+                        "bankCode": bank_code,
+                        "address": address,
+                        "recordDate": record_date,
+                    },
                     headers=_auth_headers(),
                     timeout=5,
                 )
+                redir = _handle_unauthorized(resp, next_path=request.path)
+                if redir:
+                    return redir
                 if resp.status_code == 201:
                     flash('İşlem kaydı eklendi.', 'success')
                 else:
@@ -908,17 +931,28 @@ def transactions():
 
         if action == 'update':
             tx_id = (request.form.get('edit_id') or '').strip()
-            desc = (request.form.get('edit_description') or '').strip()
+            full_name = (request.form.get('edit_fullName') or '').strip()
             amount = (request.form.get('edit_amount') or '').strip()
-            status = (request.form.get('edit_status') or '').strip().upper()
+            bank_code = (request.form.get('edit_bankCode') or '').strip()
+            address = (request.form.get('edit_address') or '').strip()
+            record_date = (request.form.get('edit_recordDate') or '').strip()
             try:
                 resp = requests.put(
                     f"{API_URL}/api/transactions/item",
                     params={"id": tx_id},
-                    json={"description": desc, "amount": str(amount), "status": status},
+                    json={
+                        "fullName": full_name,
+                        "amount": str(amount),
+                        "bankCode": bank_code,
+                        "address": address,
+                        "recordDate": record_date,
+                    },
                     headers=_auth_headers(),
                     timeout=5,
                 )
+                redir = _handle_unauthorized(resp, next_path=request.path)
+                if redir:
+                    return redir
                 if resp.status_code == 200:
                     flash('İşlem güncellendi.', 'success')
                 else:
@@ -937,6 +971,9 @@ def transactions():
                     headers=_auth_headers(),
                     timeout=5,
                 )
+                redir = _handle_unauthorized(resp, next_path=request.path)
+                if redir:
+                    return redir
                 if resp.status_code == 200:
                     flash('İşlem silindi.', 'success')
                 else:
@@ -961,6 +998,9 @@ def transactions():
             )
         else:
             resp = requests.get(f"{API_URL}/api/transactions", headers=_auth_headers(), timeout=5)
+        redir = _handle_unauthorized(resp, next_path=request.path)
+        if redir:
+            return redir
         txs = resp.json() if resp.status_code == 200 else []
     except Exception:
         txs = []
@@ -971,7 +1011,29 @@ def transactions():
     except Exception:
         user_data = {}
 
-    return render_template('transactions.html', user=_normalize_user(user_data), txs=txs, q=(request.args.get('q') or '').strip())
+    bank_codes = [
+        "AKBANK",
+        "GARANTI",
+        "ISBANK",
+        "YAPIKREDI",
+        "QNB",
+        "DENIZBANK",
+        "HALKBANK",
+        "VAKIFBANK",
+        "ZIRAAT",
+        "ING",
+    ]
+    rng = _daily_rng("banks")
+    rng.shuffle(bank_codes)
+
+    return render_template(
+        'transactions.html',
+        user=_normalize_user(user_data),
+        txs=txs,
+        q=(request.args.get('q') or '').strip(),
+        today=datetime.now().date().isoformat(),
+        bank_codes=bank_codes,
+    )
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)
