@@ -1,7 +1,7 @@
 {% extends "layout.html" %} {% block content %}
 <div class="hero-section">
   <h1>Kullanıcı Yönetimi</h1>
-  <p>Sisteme kayıtlı kullanıcılar ve hızlı ekleme.</p>
+  <p>Sisteme kayıtlı kullanıcılar: ekle / düzelt / ara / listele / sil.</p>
 </div>
 
 <div class="grid">
@@ -49,6 +49,20 @@
       <h3>Kullanıcı Listesi</h3>
       <span class="pill">DB veya cache</span>
     </div>
+
+    <form method="get" style="display:flex; gap:10px; align-items:center; margin: 10px 0 14px;">
+      <input
+        class="input"
+        type="text"
+        name="q"
+        placeholder="Kullanıcı ara (örn: admin)"
+        value="{{ q or '' }}"
+        style="flex:1"
+      />
+      <button class="btn" type="submit">Ara</button>
+      <a class="btn ghost" href="{{ url_for('users') }}">Sıfırla</a>
+    </form>
+
     <div class="table-responsive">
       <table class="data-table">
         <thead>
@@ -58,6 +72,7 @@
             <th>Rol</th>
             <th>TL Bakiye</th>
             <th>Kripto</th>
+            <th>İşlem</th>
           </tr>
         </thead>
         <tbody>
@@ -65,16 +80,35 @@
           <tr>
             <td>{{ u.id }}</td>
             <td>{{ u.username }}</td>
-            <td>{{ u.role }}</td>
-            <td>{{ u.fiatBalance }}</td>
-            <td>{{ u.cryptoBalance }}</td>
+            <td>
+              <form method="post" style="display:flex; gap:8px; align-items:center;">
+                <input type="hidden" name="action" value="update" />
+                <input type="hidden" name="edit_username" value="{{ u.username }}" />
+                <select class="input" name="edit_role" style="min-width:120px;">
+                  <option value="RESIDENT" {{ 'selected' if u.role == 'RESIDENT' else '' }}>RESIDENT</option>
+                  <option value="ADMIN" {{ 'selected' if u.role == 'ADMIN' else '' }}>ADMIN</option>
+                </select>
+            </td>
+            <td>
+                <input class="input" name="edit_fiat" value="{{ u.fiatBalance }}" style="min-width:120px;" />
+            </td>
+            <td>
+                <input class="input" name="edit_crypto" value="{{ u.cryptoBalance }}" style="min-width:120px;" />
+            </td>
+            <td style="white-space:nowrap;">
+                <button type="submit" class="btn">Güncelle</button>
+              </form>
+
+              <form method="post" style="margin-top:8px;">
+                <input type="hidden" name="action" value="delete" />
+                <input type="hidden" name="delete_username" value="{{ u.username }}" />
+                <button type="submit" class="btn danger">Sil</button>
+              </form>
+            </td>
           </tr>
           {% else %}
           <tr>
-            <td
-              colspan="5"
-              style="text-align: center; color: var(--text-muted)"
-            >
+            <td colspan="6" style="text-align: center; color: var(--text-muted)">
               Kayıt bulunamadı
             </td>
           </tr>

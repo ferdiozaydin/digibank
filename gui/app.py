@@ -406,7 +406,20 @@ def transfer():
         iban = request.form.get('iban', '').strip()
         amount = request.form.get('amount', '').strip()
         desc = request.form.get('description', '').strip()
-        flash(f"{to_name} adına {amount} TL transfer talebi oluşturuldu (demo).", 'success')
+        try:
+            resp = requests.post(
+                f"{API_URL}/api/transfer",
+                json={"toName": to_name, "iban": iban, "amount": str(amount), "description": desc},
+                timeout=5,
+                headers=_auth_headers(),
+            )
+            if resp.status_code == 201:
+                flash(f"{to_name} adına {amount} TL transfer kaydı oluşturuldu.", 'success')
+            else:
+                msg = resp.json().get('hata', 'Transfer başarısız') if resp.content else 'Transfer başarısız'
+                flash(msg, 'error')
+        except Exception:
+            flash('Transfer başarısız: bağlantı hatası', 'error')
         return redirect(url_for('transfer'))
 
     return render_template(
@@ -513,32 +526,86 @@ def settings():
 
 @app.route('/users', methods=['GET', 'POST'])
 def users():
-    # new user create
     if request.method == 'POST':
-        new_username = request.form.get('username', '').strip()
-        new_password = request.form.get('password', '').strip()
-        role = request.form.get('role', 'RESIDENT').strip().upper() or 'RESIDENT'
-        if not new_username or not new_password:
-            flash('Kullanıcı adı ve şifre gerekli.', 'error')
-        else:
+        action = (request.form.get('action') or 'create').strip().lower()
+
+        if action == 'create':
+            new_username = request.form.get('username', '').strip()
+            new_password = request.form.get('password', '').strip()
+            role = request.form.get('role', 'RESIDENT').strip().upper() or 'RESIDENT'
+            if not new_username or not new_password:
+                flash('Kullanıcı adı ve şifre gerekli.', 'error')
+            else:
+                try:
+                    resp = requests.post(
+                        f"{API_URL}/api/users/register",
+                        json={"username": new_username, "password": new_password, "role": role},
+                        headers=_auth_headers(),
+                        timeout=5,
+                    )
+                    if resp.status_code == 201:
+                        flash(f"{new_username} eklendi.", 'success')
+                    else:
+                        msg = resp.json().get('hata', 'Kayıt başarısız') if resp.content else 'Kayıt başarısız'
+                        flash(msg, 'error')
+                except Exception:
+                    flash('Kayıt başarısız: bağlantı hatası', 'error')
+            return redirect(url_for('users'))
+
+        if action == 'update':
+            username = request.form.get('edit_username', '').strip()
+            role = request.form.get('edit_role', '').strip().upper()
+            fiat = (request.form.get('edit_fiat') or '').strip()
+            crypto = (request.form.get('edit_crypto') or '').strip()
             try:
-                resp = requests.post(
-                    f"{API_URL}/api/users/register",
-                    json={"username": new_username, "password": new_password, "role": role},
+                resp = requests.put(
+                    f"{API_URL}/api/users/item",
+                    params={"username": username},
+                    json={"role": role, "fiatBalance": fiat, "cryptoBalance": crypto},
                     headers=_auth_headers(),
                     timeout=5,
                 )
-                if resp.status_code == 201:
-                    flash(f"{new_username} eklendi.", 'success')
+                if resp.status_code == 200:
+                    flash(f"{username} güncellendi.", 'success')
                 else:
-                    msg = resp.json().get('hata', 'Kayıt başarısız') if resp.content else 'Kayıt başarısız'
+                    msg = resp.json().get('hata', 'Güncelleme başarısız') if resp.content else 'Güncelleme başarısız'
                     flash(msg, 'error')
             except Exception:
-                flash('Kayıt başarısız: bağlantı hatası', 'error')
+                flash('Güncelleme başarısız: bağlantı hatası', 'error')
+            return redirect(url_for('users'))
+
+        if action == 'delete':
+            username = request.form.get('delete_username', '').strip()
+            try:
+                resp = requests.delete(
+                    f"{API_URL}/api/users/item",
+                    params={"username": username},
+                    headers=_auth_headers(),
+                    timeout=5,
+                )
+                if resp.status_code == 200:
+                    flash(f"{username} silindi.", 'success')
+                else:
+                    msg = resp.json().get('hata', 'Silme başarısız') if resp.content else 'Silme başarısız'
+                    flash(msg, 'error')
+            except Exception:
+                flash('Silme başarısız: bağlantı hatası', 'error')
+            return redirect(url_for('users'))
+
+        flash('Bilinmeyen işlem.', 'error')
         return redirect(url_for('users'))
 
     try:
-        list_resp = requests.get(f"{API_URL}/api/users", headers=_auth_headers(), timeout=5)
+        q = (request.args.get('q') or '').strip()
+        if q:
+            list_resp = requests.get(
+                f"{API_URL}/api/users/search",
+                params={"q": q},
+                headers=_auth_headers(),
+                timeout=5,
+            )
+        else:
+            list_resp = requests.get(f"{API_URL}/api/users", headers=_auth_headers(), timeout=5)
         users_data = list_resp.json() if list_resp.status_code == 200 else []
     except Exception:
         users_data = []
@@ -549,7 +616,101 @@ def users():
     except Exception:
         user_data = {}
 
-    return render_template('users.html', user=_normalize_user(user_data), users=users_data)
+    return render_template('users.html', user=_normalize_user(user_data), users=users_data, q=(request.args.get('q') or '').strip())
+
+
+@app.route('/transactions', methods=['GET', 'POST'])
+def transactions():
+    if request.method == 'POST':
+        action = (request.form.get('action') or 'create').strip().lower()
+
+        if action == 'create':
+            user_id = (request.form.get('userId') or '').strip()
+            desc = (request.form.get('description') or '').strip()
+            amount = (request.form.get('amount') or '').strip()
+            status = (request.form.get('status') or 'BASARILI').strip().upper() or 'BASARILI'
+            try:
+                resp = requests.post(
+                    f"{API_URL}/api/transactions/create",
+                    json={"userId": str(user_id), "description": desc, "amount": str(amount), "status": status},
+                    headers=_auth_headers(),
+                    timeout=5,
+                )
+                if resp.status_code == 201:
+                    flash('İşlem kaydı eklendi.', 'success')
+                else:
+                    msg = resp.json().get('hata', 'Kayıt başarısız') if resp.content else 'Kayıt başarısız'
+                    flash(msg, 'error')
+            except Exception:
+                flash('Kayıt başarısız: bağlantı hatası', 'error')
+            return redirect(url_for('transactions'))
+
+        if action == 'update':
+            tx_id = (request.form.get('edit_id') or '').strip()
+            desc = (request.form.get('edit_description') or '').strip()
+            amount = (request.form.get('edit_amount') or '').strip()
+            status = (request.form.get('edit_status') or '').strip().upper()
+            try:
+                resp = requests.put(
+                    f"{API_URL}/api/transactions/item",
+                    params={"id": tx_id},
+                    json={"description": desc, "amount": str(amount), "status": status},
+                    headers=_auth_headers(),
+                    timeout=5,
+                )
+                if resp.status_code == 200:
+                    flash('İşlem güncellendi.', 'success')
+                else:
+                    msg = resp.json().get('hata', 'Güncelleme başarısız') if resp.content else 'Güncelleme başarısız'
+                    flash(msg, 'error')
+            except Exception:
+                flash('Güncelleme başarısız: bağlantı hatası', 'error')
+            return redirect(url_for('transactions'))
+
+        if action == 'delete':
+            tx_id = (request.form.get('delete_id') or '').strip()
+            try:
+                resp = requests.delete(
+                    f"{API_URL}/api/transactions/item",
+                    params={"id": tx_id},
+                    headers=_auth_headers(),
+                    timeout=5,
+                )
+                if resp.status_code == 200:
+                    flash('İşlem silindi.', 'success')
+                else:
+                    msg = resp.json().get('hata', 'Silme başarısız') if resp.content else 'Silme başarısız'
+                    flash(msg, 'error')
+            except Exception:
+                flash('Silme başarısız: bağlantı hatası', 'error')
+            return redirect(url_for('transactions'))
+
+        flash('Bilinmeyen işlem.', 'error')
+        return redirect(url_for('transactions'))
+
+    # GET: list/search
+    try:
+        q = (request.args.get('q') or '').strip()
+        if q:
+            resp = requests.get(
+                f"{API_URL}/api/transactions/search",
+                params={"q": q},
+                headers=_auth_headers(),
+                timeout=5,
+            )
+        else:
+            resp = requests.get(f"{API_URL}/api/transactions", headers=_auth_headers(), timeout=5)
+        txs = resp.json() if resp.status_code == 200 else []
+    except Exception:
+        txs = []
+
+    try:
+        uresp = requests.get(f"{API_URL}/api/user", timeout=3, headers=_auth_headers())
+        user_data = uresp.json() if uresp.status_code == 200 else {}
+    except Exception:
+        user_data = {}
+
+    return render_template('transactions.html', user=_normalize_user(user_data), txs=txs, q=(request.args.get('q') or '').strip())
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)

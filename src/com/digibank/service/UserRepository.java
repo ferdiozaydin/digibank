@@ -106,6 +106,59 @@ public class UserRepository {
         return new ArrayList<>(cache.values());
     }
 
+    /** Basit arama: username ILIKE %q% (ADMIN ekranı için). */
+    public List<User> searchByUsername(String q) {
+        if (q == null) q = "";
+        q = q.trim();
+        if (q.isEmpty()) {
+            return findAll();
+        }
+        if (dbEnabled && conn != null) {
+            List<User> users = new ArrayList<>();
+            String sql = "SELECT id, username, password_hash, salt, totp_secret, pq_public_key, role, fiat_balance, crypto_balance FROM users WHERE username ILIKE ? ORDER BY id";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, "%" + q + "%");
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        users.add(mapRow(rs));
+                    }
+                }
+                users.forEach(u -> cache.put(u.getUsername(), u));
+                return users;
+            } catch (SQLException e) {
+                AuditLogger.getInstance().logError("Kullanici arama DB hatasi, cache ile filtreleniyor", e);
+            }
+        }
+        List<User> out = new ArrayList<>();
+        for (User u : cache.values()) {
+            if (u.getUsername() != null && u.getUsername().toLowerCase().contains(q.toLowerCase())) {
+                out.add(u);
+            }
+        }
+        return out;
+    }
+
+    /** username ile kaydi siler. DB yoksa sadece cache'den siler. */
+    public boolean deleteByUsername(String username) {
+        if (username == null || username.isEmpty()) return false;
+        if (dbEnabled && conn != null) {
+            String sql = "DELETE FROM users WHERE username = ?";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, username);
+                int deleted = ps.executeUpdate();
+                if (deleted > 0) {
+                    cache.remove(username);
+                    return true;
+                }
+                return false;
+            } catch (SQLException e) {
+                AuditLogger.getInstance().logError("Kullanici silme DB hatasi", e);
+                return false;
+            }
+        }
+        return cache.remove(username) != null;
+    }
+
     private User mapRow(ResultSet rs) throws SQLException {
         return new User(
             rs.getLong("id"),

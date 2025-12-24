@@ -69,7 +69,7 @@ public class Main {
         invoker.submit(new ToggleHomeDeviceCommand(homeDeviceController, "LIGHT-LIVINGROOM", true));
 
         // 4. Start API Server
-        ApiServer server = new ApiServer(userRepository, paymentService, govService, authService, predictiveService, homeDeviceController);
+        ApiServer server = new ApiServer(userRepository, txRepo, paymentService, govService, authService, predictiveService, homeDeviceController);
         
         try {
             server.start(8080);

@@ -12,6 +12,8 @@ import com.digibank.service.PredictiveAnalyticsService;
 import com.digibank.service.HomeDeviceController;
 import com.digibank.integration.SmartGovernmentService;
 import com.digibank.service.UserRepository;
+import com.digibank.service.TransactionRepository;
+import com.digibank.model.Transaction;
 import com.digibank.util.SimpleJson;
 import com.digibank.patterns.strategy.FiatPaymentStrategy;
 import com.digibank.patterns.adapter.BtcAdapter;
@@ -32,6 +34,8 @@ import java.util.Scanner;
 import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 public class ApiServer {
 
@@ -41,12 +45,14 @@ public class ApiServer {
     private final AuthenticationService authService;
     private final PredictiveAnalyticsService predictiveService;
     private final HomeDeviceController homeDeviceController;
+    private final TransactionRepository transactionRepository;
     private final Map<String, User> tokenStore = new ConcurrentHashMap<>();
     private final String devBypassToken = System.getenv().getOrDefault("DEV_AUTH_TOKEN", "");
     private final boolean requireHttps = Boolean.parseBoolean(System.getenv().getOrDefault("REQUIRE_HTTPS", "false"));
 
-    public ApiServer(UserRepository userRepository, PaymentService paymentService, SmartGovernmentService smartGovService, AuthenticationService authService, PredictiveAnalyticsService predictiveService, HomeDeviceController homeDeviceController) {
+    public ApiServer(UserRepository userRepository, TransactionRepository transactionRepository, PaymentService paymentService, SmartGovernmentService smartGovService, AuthenticationService authService, PredictiveAnalyticsService predictiveService, HomeDeviceController homeDeviceController) {
         this.userRepository = userRepository;
+        this.transactionRepository = transactionRepository;
         this.paymentService = paymentService;
         this.smartGovService = smartGovService;
         this.authService = authService;
@@ -61,6 +67,15 @@ public class ApiServer {
         server.createContext("/api/user", new UserHandler());
         server.createContext("/api/users", new UsersHandler());
         server.createContext("/api/users/register", new UserRegisterHandler());
+        server.createContext("/api/users/search", new UsersSearchHandler());
+        server.createContext("/api/users/item", new UserItemHandler());
+
+        server.createContext("/api/transactions", new TransactionsHandler());
+        server.createContext("/api/transactions/search", new TransactionsSearchHandler());
+        server.createContext("/api/transactions/item", new TransactionItemHandler());
+        server.createContext("/api/transactions/create", new TransactionCreateHandler());
+        server.createContext("/api/transfer", new TransferHandler());
+
         server.createContext("/api/bills", new BillsHandler());
         server.createContext("/api/pay", new PaymentHandler());
         server.createContext("/api/export", new ExportHandler());
@@ -101,6 +116,292 @@ public class ApiServer {
             } else {
                 sendResponse(t, 405, "{\"hata\":\"Yontem desteklenmiyor\"}");
             }
+        }
+    }
+
+    class UsersSearchHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange t) throws IOException {
+            User authed = requireAuth(t);
+            if (authed == null) return;
+            if (!requireRole(t, authed, "ADMIN")) return;
+            if (!"GET".equals(t.getRequestMethod())) {
+                sendResponse(t, 405, "{\"hata\":\"Yontem desteklenmiyor\"}");
+                return;
+            }
+            String q = extractQueryParam(t.getRequestURI().getQuery(), "q");
+            q = urlDecode(q);
+            String response = SimpleJson.toJson(userRepository.searchByUsername(q));
+            sendResponse(t, 200, response);
+        }
+    }
+
+    class UserItemHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange t) throws IOException {
+            User authed = requireAuth(t);
+            if (authed == null) return;
+            if (!requireRole(t, authed, "ADMIN")) return;
+
+            String username = extractQueryParam(t.getRequestURI().getQuery(), "username");
+            username = urlDecode(username);
+            if (username == null || username.isEmpty()) {
+                sendResponse(t, 400, "{\"hata\":\"username gerekli\"}");
+                return;
+            }
+
+            if ("GET".equals(t.getRequestMethod())) {
+                User u = userRepository.findByUsername(username);
+                if (u == null) {
+                    sendResponse(t, 404, "{\"hata\":\"Kullanici bulunamadi\"}");
+                    return;
+                }
+                sendResponse(t, 200, SimpleJson.toJson(u));
+                return;
+            }
+
+            if ("DELETE".equals(t.getRequestMethod())) {
+                boolean ok = userRepository.deleteByUsername(username);
+                if (!ok) {
+                    sendResponse(t, 404, "{\"hata\":\"Kullanici bulunamadi\"}");
+                    return;
+                }
+                sendResponse(t, 200, "{\"durum\":\"BASARILI\"}");
+                return;
+            }
+
+            if ("PUT".equals(t.getRequestMethod())) {
+                String body = readBody(t.getRequestBody());
+                String role = extractValue(body, "role");
+                String fiatStr = extractValue(body, "fiatBalance");
+                String cryptoStr = extractValue(body, "cryptoBalance");
+
+                User existing = userRepository.findByUsername(username);
+                if (existing == null) {
+                    sendResponse(t, 404, "{\"hata\":\"Kullanici bulunamadi\"}");
+                    return;
+                }
+
+                if (role != null && !role.isEmpty()) {
+                    existing.setRole(role.toUpperCase());
+                }
+                if (fiatStr != null && !fiatStr.isEmpty()) {
+                    try {
+                        existing.setFiatBalance(new BigDecimal(fiatStr));
+                    } catch (Exception e) {
+                        sendResponse(t, 400, "{\"hata\":\"Gecersiz fiatBalance\"}");
+                        return;
+                    }
+                }
+                if (cryptoStr != null && !cryptoStr.isEmpty()) {
+                    try {
+                        existing.setCryptoBalance(new BigDecimal(cryptoStr));
+                    } catch (Exception e) {
+                        sendResponse(t, 400, "{\"hata\":\"Gecersiz cryptoBalance\"}");
+                        return;
+                    }
+                }
+
+                userRepository.upsert(existing);
+                sendResponse(t, 200, "{\"durum\":\"BASARILI\"}");
+                return;
+            }
+
+            sendResponse(t, 405, "{\"hata\":\"Yontem desteklenmiyor\"}");
+        }
+    }
+
+    class TransactionsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange t) throws IOException {
+            User authed = requireAuth(t);
+            if (authed == null) return;
+            if (!requireAnyRole(t, authed, "RESIDENT", "ADMIN")) return;
+            if (!"GET".equals(t.getRequestMethod())) {
+                sendResponse(t, 405, "{\"hata\":\"Yontem desteklenmiyor\"}");
+                return;
+            }
+            List<Transaction> txs;
+            if (authed.hasRole("ADMIN")) {
+                txs = transactionRepository.findAll();
+            } else {
+                txs = transactionRepository.findByUserId(authed.getId());
+            }
+            sendResponse(t, 200, SimpleJson.toJson(txs));
+        }
+    }
+
+    class TransactionsSearchHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange t) throws IOException {
+            User authed = requireAuth(t);
+            if (authed == null) return;
+            if (!requireAnyRole(t, authed, "RESIDENT", "ADMIN")) return;
+            if (!"GET".equals(t.getRequestMethod())) {
+                sendResponse(t, 405, "{\"hata\":\"Yontem desteklenmiyor\"}");
+                return;
+            }
+            String q = extractQueryParam(t.getRequestURI().getQuery(), "q");
+            q = urlDecode(q);
+            List<Transaction> txs;
+            if (authed.hasRole("ADMIN")) {
+                txs = transactionRepository.search(q, null);
+            } else {
+                txs = transactionRepository.search(q, authed.getId());
+            }
+            sendResponse(t, 200, SimpleJson.toJson(txs));
+        }
+    }
+
+    class TransactionItemHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange t) throws IOException {
+            User authed = requireAuth(t);
+            if (authed == null) return;
+            if (!requireAnyRole(t, authed, "RESIDENT", "ADMIN")) return;
+
+            String idStr = extractQueryParam(t.getRequestURI().getQuery(), "id");
+            if (idStr == null || idStr.isEmpty()) {
+                sendResponse(t, 400, "{\"hata\":\"id gerekli\"}");
+                return;
+            }
+            long id;
+            try {
+                id = Long.parseLong(idStr);
+            } catch (NumberFormatException e) {
+                sendResponse(t, 400, "{\"hata\":\"Gecersiz id\"}");
+                return;
+            }
+
+            Transaction tx = transactionRepository.findById(id);
+            if (tx == null) {
+                sendResponse(t, 404, "{\"hata\":\"Islem bulunamadi\"}");
+                return;
+            }
+            if (!authed.hasRole("ADMIN") && (tx.getUserId() == null || !tx.getUserId().equals(authed.getId()))) {
+                sendResponse(t, 403, "{\"hata\":\"Erisim yasak\"}");
+                return;
+            }
+
+            if ("GET".equals(t.getRequestMethod())) {
+                sendResponse(t, 200, SimpleJson.toJson(tx));
+                return;
+            }
+
+            if ("DELETE".equals(t.getRequestMethod())) {
+                // sadece ADMIN silebilsin
+                if (!requireRole(t, authed, "ADMIN")) return;
+                boolean ok = transactionRepository.delete(id);
+                if (!ok) {
+                    sendResponse(t, 404, "{\"hata\":\"Islem bulunamadi\"}");
+                    return;
+                }
+                sendResponse(t, 200, "{\"durum\":\"BASARILI\"}");
+                return;
+            }
+
+            if ("PUT".equals(t.getRequestMethod())) {
+                if (!requireRole(t, authed, "ADMIN")) return;
+                String body = readBody(t.getRequestBody());
+                String desc = extractValue(body, "description");
+                String amountStr = extractValue(body, "amount");
+                String status = extractValue(body, "status");
+
+                if (desc != null) tx.setDescription(desc);
+                if (status != null) tx.setStatus(status);
+                if (amountStr != null && !amountStr.isEmpty()) {
+                    try {
+                        tx.setAmount(new BigDecimal(amountStr));
+                    } catch (Exception e) {
+                        sendResponse(t, 400, "{\"hata\":\"Gecersiz amount\"}");
+                        return;
+                    }
+                }
+
+                transactionRepository.update(tx);
+                sendResponse(t, 200, "{\"durum\":\"BASARILI\"}");
+                return;
+            }
+
+            sendResponse(t, 405, "{\"hata\":\"Yontem desteklenmiyor\"}");
+        }
+    }
+
+    class TransactionCreateHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange t) throws IOException {
+            User authed = requireAuth(t);
+            if (authed == null) return;
+            if (!requireRole(t, authed, "ADMIN")) return;
+            if (!"POST".equals(t.getRequestMethod())) {
+                sendResponse(t, 405, "{\"hata\":\"Yontem desteklenmiyor\"}");
+                return;
+            }
+            String body = readBody(t.getRequestBody());
+            String userIdStr = extractValue(body, "userId");
+            String desc = extractValue(body, "description");
+            String amountStr = extractValue(body, "amount");
+            String status = extractValue(body, "status");
+            if (userIdStr == null || amountStr == null || desc == null) {
+                sendResponse(t, 400, "{\"hata\":\"Eksik bilgiler\"}");
+                return;
+            }
+            long userId;
+            try {
+                userId = Long.parseLong(userIdStr);
+            } catch (NumberFormatException e) {
+                sendResponse(t, 400, "{\"hata\":\"Gecersiz userId\"}");
+                return;
+            }
+            BigDecimal amount;
+            try {
+                amount = new BigDecimal(amountStr);
+            } catch (Exception e) {
+                sendResponse(t, 400, "{\"hata\":\"Gecersiz amount\"}");
+                return;
+            }
+            if (status == null || status.isEmpty()) status = "BASARILI";
+
+            Transaction created = transactionRepository.create(new Transaction(null, userId, desc, amount, status));
+            sendResponse(t, 201, SimpleJson.toJson(created));
+        }
+    }
+
+    class TransferHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange t) throws IOException {
+            User authed = requireAuth(t);
+            if (authed == null) return;
+            if (!requireAnyRole(t, authed, "RESIDENT", "ADMIN")) return;
+            if (!"POST".equals(t.getRequestMethod())) {
+                sendResponse(t, 405, "{\"hata\":\"Yontem desteklenmiyor\"}");
+                return;
+            }
+            String body = readBody(t.getRequestBody());
+            String toName = extractValue(body, "toName");
+            String iban = extractValue(body, "iban");
+            String amountStr = extractValue(body, "amount");
+            String desc = extractValue(body, "description");
+            if (iban == null || amountStr == null) {
+                sendResponse(t, 400, "{\"hata\":\"Eksik bilgiler\"}");
+                return;
+            }
+            BigDecimal amount;
+            try {
+                amount = new BigDecimal(amountStr);
+            } catch (Exception e) {
+                sendResponse(t, 400, "{\"hata\":\"Gecersiz amount\"}");
+                return;
+            }
+
+            StringBuilder d = new StringBuilder();
+            d.append("Transfer");
+            if (toName != null && !toName.isEmpty()) d.append("->").append(toName);
+            d.append(" ").append(iban);
+            if (desc != null && !desc.isEmpty()) d.append(" |").append(desc);
+
+            Transaction created = transactionRepository.create(new Transaction(null, authed.getId(), d.toString(), amount.negate(), "BASARILI"));
+            sendResponse(t, 201, SimpleJson.toJson(created));
         }
     }
 
@@ -425,6 +726,15 @@ public class ApiServer {
             }
         }
         return null;
+    }
+
+    private String urlDecode(String v) {
+        if (v == null) return null;
+        try {
+            return URLDecoder.decode(v, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return v;
+        }
     }
 
     private User requireAuth(HttpExchange t) throws IOException {

@@ -278,6 +278,14 @@ nav {
   background: #2563eb;
 }
 
+.btn.danger {
+  background: var(--error);
+}
+
+.btn.danger:hover {
+  background: var(--error);
+}
+
 .btn-pay {
   width: 100%;
   margin-top: 10px;
