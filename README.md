@@ -81,16 +81,32 @@ Docker Compose ile ayağa kalkan servislerin listesi ve erişim bilgileri aşağ
 
 ## Ekran Görüntüleri 🖼️
 
-Aşağıda proje arayüzünden bazı görüntüler bulunmaktadır.
+Aşağıda yeni geliştirilen web tabanlı sistemin arayüzünden örnekler bulunmaktadır:
+
+**Giriş ve Genel Bakış**
 
 <p align="center">
-  <img src="screenshots/login.png" alt="Login ekranı" width="240" />
+  <img src="screenshots/digicitybank-login.png" alt="Giriş Ekranı" width="45%" />
   &nbsp;&nbsp;
-  <img src="screenshots/dashboard.png" alt="Dashboard" width="320" />
-  &nbsp;&nbsp;
-  <img src="screenshots/users.png" alt="Kullanıcılar" width="240" />
+  <img src="screenshots/digicitybank-dashboard.png" alt="Dashboard" width="45%" />
 </p>
 
+**Bankacılık İşlemleri**
+
 <p align="center">
-  <img src="screenshots/banking-send-money.png" alt="Kart ile gönderme" width="320" />
+  <img src="screenshots/digicitybank-bank-card-list.png" alt="Kart Listesi" width="30%" />
+  &nbsp;&nbsp;
+  <img src="screenshots/digicitybank-bank-transactions-list.png" alt="Hesap Hareketleri" width="30%" />
+  &nbsp;&nbsp;
+  <img src="screenshots/digicitybank-bank-transfer.png" alt="Para Transferi" width="30%" />
+</p>
+
+**Yönetim ve Diğer Modüller**
+
+<p align="center">
+  <img src="screenshots/digicitybank-admin-user-list.png" alt="Kullanıcı Yönetimi" width="30%" />
+  &nbsp;&nbsp;
+  <img src="screenshots/digicitybank-smart-home.png" alt="Akıllı Ev" width="30%" />
+  &nbsp;&nbsp;
+  <img src="screenshots/digicitybank-smart-city.png" alt="Akıllı Şehir" width="30%" />
 </p>
