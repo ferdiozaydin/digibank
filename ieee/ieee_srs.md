@@ -1,119 +1,99 @@
 # 1. Gereksinim Analizi (IEEE SRS)
 
-Aşağıda DigiBank + Smart City entegrasyon projesi için **IEEE SRS standardına uygun**, akademik formatta hazırlanmış bir bölümü bulacaksın. Bu içerik ödev raporuna **doğrudan eklenebilir niteliktedir**.
+Aşağıda **DigiBank Modernizasyon Projesi** için **IEEE 830-1998 SRS standardına uygun** olarak hazırlanmış yazılım gereksinim analizi raporu yer almaktadır. Bu içerik, `digibank.exe` masaüstü uygulamasından web tabanlı, servis odaklı bir mimariye geçişi belgeler.
 
 ---
 
 # **1. Giriş (Introduction)**
 
-Bu dokümanın amacı, Akıllı Şehir Otomasyon Sistemi ile entegre çalışan DigiBank dijital bankacılık platformunun yazılım gereksinimlerini IEEE SRS standardına uygun şekilde tanımlamaktır. Sistem; şehir altyapısı, sensör tabanlı güvenlik mekanizmaları ve akıllı hizmetler ile finansal işlemleri bir arada sunan kapsamlı bir otomasyon çözümüdür. Kullanıcılar, güvenli kimlik doğrulama mekanizmalarıyla sisteme erişebilir, şehir hizmetlerini görüntüleyebilir ve fiat veya kripto para kullanarak ödeme işlemlerini gerçekleştirebilirler.
+Bu dokümanın amacı, **DigiBank** bankacılık platformunun modernize edilmiş versiyonunun yazılım gereksinimlerini tanımlamaktır. Proje, eski bir masaüstü uygulamasını (`digibank.exe`) alıp, onu modern **Java Spring Boot (benzeri)** bir backend ve **Python Flask** tabanlı bir frontend mimarisine taşımayı hedefler. Yenilenen sistem; finansal işlemleri (havale, EFT, fatura), akıllı şehir entegrasyonlarını (IoT cihaz kontrolü) ve yönetimsel raporlamayı tek bir hibrit-bulut hazır yapıda sunar.
 
-Bu doküman; sistemin fonksiyonel gereksinimlerini, fonksiyonel olmayan gereksinimlerini, güvenlik kriterlerini, yüksek seviyeli mimarisini ve harici sistemlerle etkileşimlerini tanımlar. Tanımlanan gereksinimler, tasarım, geliştirme, test ve doğrulama süreçlerinin temel referans kaynağı olarak kullanılacaktır.
+Kapsam dahilindeki başlıca özellikler:
+*   Kullanıcıların güvenli erişimi (MFA/TOTP).
+*   Fiat ve Kripto para birimleri ile ödeme yapabilme.
+*   Akıllı şehir faturalarının (Smart Government) görüntülenip ödenebilmesi.
+*   Ev otomasyonu (IoT) cihazlarının bankacılık arayüzünden yönetilebilmesi.
 
 ---
 
 # **2. Sistem Tanımı (System Description)**
 
-DigiBank, Akıllı Şehir çatısı altında çalışan merkezi bir dijital bankacılık bileşenidir. Sistem; şehir sakinlerinin kullanımına sunulan dijital hizmetlerin (otopark, toplu taşıma, enerji tüketimi vb.) ödeme altyapısını sağlar. Aynı zamanda şehir yönetimi tarafından işletilen sensör ağları, güvenlik mekanizmaları ve otomasyon servisleri ile entegre çalışır.
+Modern DigiBank, **Servis Odaklı Mimari (SOA)** prensiplerine göre tasarlanmış, **Docker** konteynerleri üzerinde çalışan dağıtık bir sistemdir. Kullanıcılar sisteme web tarayıcıları üzerinden erişir. Arka planda Java tabanlı bir REST API, tüm iş mantığını (Business Logic) yürütürken; veri bütünlüğü PostgreSQL veritabanı ile sağlanır.
 
-Sistem aşağıdaki ana bileşenlerden oluşur:
-
-* **DigiBank Ödeme Motoru:** Fiat ve kripto para birimleriyle işlem yapılmasını sağlar.
-* **Kimlik Doğrulama Servisi:** MFA ve rol tabanlı erişim kontrolü sunar.
-* **CityController:** Şehir altyapısını yönetir (trafik, aydınlatma, sensörler).
-* **Bildirim Servisi:** Kullanıcılara, kamu güvenliği birimlerine ve diğer paydaşlara gerçek zamanlı uyarılar gönderir.
-* **Hibrit Bulut Altyapısı:** Kritik hesap ve işlem verileri yerel sunucularda saklanırken, loglar, analiz çıktıları ve ölçeklenebilir hizmetler bulut ortamında tutulur.
-
-Bu yapı sayesinde hem yüksek güvenlik hem yüksek erişilebilirlik sağlanmaktadır.
+Sistem bileşenleri:
+1.  **Backend API (Java 17):** Kimlik doğrulama, hesap yönetimi ve işlem motorunu barındıran çekirdek servis.
+2.  **Frontend GUI (Python Flask):** Kullanıcı arayüzünü sunan ve API ile haberleşen web sunucusu.
+3.  **Veritabanı (PostgreSQL):** Kullanıcı ve işlem kayıtlarının tutulduğu ilişkisel veritabanı.
+4.  **Mail Sunucusu (Mailpit):** Sistem bildirimlerinin simülasyonu için yerel SMTP sunucusu.
 
 ---
 
 # **3. Genel Bakış (Overall Description)**
 
-Bu bölüm, sistemin kullanıcı profillerini, genel özelliklerini ve çalışma bağlamını açıklamaktadır.
-
 ## **3.1 Kullanıcı Profilleri**
 
-* **Sakin (Resident):** Şehir hizmetlerini görüntüler, ödeme yapar, ev cihazlarını uzaktan yönetir, bildirim alır.
-* **CityController Operatörü:** Trafik, sokak aydınlatması, çevresel sensörler ve diğer altyapı birimlerini yönetir.
-* **BankingService:** Ödeme işlemlerini doğrular, işlem sonucunu iletir.
-* **Kamu Güvenliği Yetkilileri:** Acil durum ve güvenlik ihlali uyarılarını alır.
-* **Kamu Hizmetleri Birimleri:** Arıza ve bakım gereksinimlerini gösteren sensör uyarılarına yanıt verir.
-* **Sistem Yöneticisi:** Kullanıcı, rol, güvenlik yapılandırması ve sistem performansını yönetir.
+*   **Sakin (Resident):** Bakiye sorgular, para transferi yapar, fatura öder ve evindeki akıllı cihazları (termostat, ışık vb.) yönetir.
+*   **Yönetici (Admin):** Kullanıcı ekler/siler, sistem metriklerini izler, işlem loglarını dışa aktarır (export) ve şüpheli işlemleri denetler.
+*   **Sistem (System):** Otomatik faiz işletimi, bekleyen faturaların oluşturulması gibi zamanlanmış görevleri yürütür.
 
-## **3.2 Sistem Özellikleri**
-
-* Güvenli kullanıcı kimlik doğrulama
-* Şehir hizmetlerinin dijital olarak görüntülenmesi
-* Fiat / kripto para ödeme işlemleri
-* Gerçek zamanlı bildirim gönderimi
-* Şehir altyapısına ilişkin otomatik rutinlerin yürütülmesi
-* Sensör tabanlı acil durum yönetimi
-* Hibrit bulut üzerine kurulu veri yönetimi
-* Tasarım kalıplarıyla modüler, genişletilebilir mimari
-
-## **3.3 Kısıtlar**
-
-* Şifreleme mekanizmaları kuantuma dayanıklı olmalıdır.
-* Sistem bulut bağımlılığı nedeniyle internet bağlantısı gerektirir.
-* Yüksek kullanıcı sayısı için ölçeklenebilir kaynak yönetimi zorunludur.
-* Tüm dış API bağlantılarında güvenli protokol kullanılması gerekmektedir.
-
-## **3.4 Varsayımlar**
-
-* Resmi hizmet sağlayıcı API’leri düzenli olarak erişilebilir durumdadır.
-* Kullanıcı cihazları modern tarayıcı veya mobil uygulama desteğine sahiptir.
-* Sensör altyapısı şehir genelinde doğru veri iletmektedir.
+## **3.2 Varsayımlar ve Bağımlılıklar**
+*   Sistemin çalışması için Docker ve Docker Compose ortamının kurulu olması gereklidir.
+*   E-posta gönderimi için yerel bir SMTP sunucusu (Mailpit) yeterlidir; gerçek bir ISP bağlantısı gerekmez.
+*   Kripto para işlemleri "simülasyon" modunda çalışır; gerçek blokzincir ağına bağlanmaz.
+*   Akıllı ev cihazları (IoT) sanal birer nesne olarak veritabanında temsil edilir.
 
 ---
 
-# **4. Sistem Mimarisi (System Architecture)**
+# **4. Fonksiyonel Gereksinimler (Functional Requirements)**
 
-DigiBank + Smart City platformu dört temel katman üzerinde çalışır:
+## **4.1 Kimlik Doğrulama ve Güvenlik**
+*   **FR-01 (MFA):** Sistem, kullanıcı girişinde kullanıcı adı/şifreye ek olarak Zamana Dayalı Tek Seferlik Şifre (TOTP) istemelidir.
+*   **FR-02 (Hashing):** Kullanıcı şifreleri veritabanında düz metin olarak değil, `SHA3-512` ve `Salt` kullanılarak saklanmalıdır.
+*   **FR-03 (Session):** Başarılı giriş sonrası API istekleri için `Bearer Token` kullanılmalıdır.
 
----
+## **4.2 Hesap ve İşlem Yönetimi**
+*   **FR-04 (Bakiye):** Kullanıcılar anlık bakiyelerini tek bir dashboard üzerinde görmelidir.
+*   **FR-05 (Transfer):** Sistem, dahili hesaplar arası para transferine izin vermelidir.
+*   **FR-06 (Ödeme Adaptörü):** Ödeme modülü, "Adapter Pattern" kullanarak hem Fiat (TL/USD) hem de Kripto (BTC/ETH) ödemelerini desteklemelidir.
 
-## **4.1 Uygulama Katmanı (Application Layer)**
+## **4.3 Akıllı Şehir Entegrasyonu**
+*   **FR-07 (Fatura Ödeme):** Kullanıcılar, simüle edilmiş şehir hizmetleri (Su, Elektrik) faturalarını sistem üzerinden ödeyebilmelidir.
+*   **FR-08 (IoT Kontrol):** Kullanıcılar, `Aç/Kapat` komutları ile sisteme bağlı sanal cihazları yönetebilmelidir.
 
-Bu katman, kullanıcı etkileşimlerini ve iş mantığının bir kısmını içerir.
-
-* Resident Web/Mobil Uygulaması
-* Admin Paneli
-* CityController Operasyon Arayüzü
-
-Bu katman, API Katmanı üzerinden çekirdek servislere bağlanır.
-
----
-
-## **4.2 API ve Servis Katmanı (Service Layer)**
-
-* **Auth Service:** MFA + JWT tabanlı kimlik doğrulama.
-* **DigiBank Service:** Fiat ve kripto ödemeler, hesap yönetimi, işlem oluşturma.
-* **Notification Service:** Observer tasarım kalıbı ile gerçek zamanlı bildirimler.
-* **CityController Service:** Altyapı yönetimi, otomasyon rutinleri, komut işleme.
-
-Bu katman, sistemin iş kurallarını ve iş akışlarını barındırır.
+## **4.4 Yönetim ve Raporlama**
+*   **FR-09 (Kullanıcı CRUD):** Yöneticiler yeni kullanıcı oluşturabilmeli, bilgilerini güncelleyebilmelidir.
+*   **FR-10 (Dışa Aktarım):** Sistem, işlem geçmişini belirli bir formatta (TXT/CSV) dosya sistemine yazabilmelidir.
+*   **FR-11 (Gözlemci):** Yüksek tutarlı işlemler gerçekleştiğinde, "Observer Pattern" devreye girmeli ve yöneticilere otomatik bildirim (simüle e-posta) göndermelidir.
 
 ---
 
-## **4.3 Veri ve Entegrasyon Katmanı (Data & Integration Layer)**
+# **5. Fonksiyonel Olmayan Gereksinimler (Non-Functional Requirements)**
 
-* **Central Database:** Hesaplar, kullanıcılar, işlem geçmişi.
-* **IoT Data Store:** Sensör verileri.
-* **Log Storage (Cloud):** Uygulama logları, dışa aktarılmış veri dosyaları.
-* **Payment Integrations:** Banka API'leri, blockchain sağlayıcıları.
+## **5.1 Güvenilirlik (Reliability)**
+*   **NFR-01 (Fallback):** Veritabanı bağlantısı kopsa bile sistem, salt-okunur modda veya önbellekten (In-Memory) çalışmaya devam edebilmelidir.
 
-Bu katman hibrit bulut mimarisinin merkezini oluşturur.
+## **5.2 Taşınabilirlik (Portability)**
+*   **NFR-02 (Containerization):** Tüm sistem (Backend, Frontend, DB), tek bir `docker compose up` komutu ile herhangi bir işletim sisteminde ayağa kalkabilmelidir.
+
+## **5.3 Performans (Performance)**
+*   **NFR-03 (Response Time):** API yanıt süreleri normal yük altında 500ms'nin altında olmalıdır.
+
+## **5.4 Sürdürülebilirlik (Maintainability)**
+*   **NFR-04 (Modularity):** Kod yapısı, katmanlı mimariye (Controller, Service, Repository) uygun olmalı; iş mantığı ile veri erişimi birbirinden ayrılmalıdır.
 
 ---
 
-## **4.4 Hibrit Bulut Altyapısı (Hybrid-Cloud Infrastructure)**
+# **6. Sistem Arayüzleri**
 
-* Yerel Sunucu Katmanı (on-prem) → kritik veriler ve güvenlik modülleri
-* Bulut Servisleri (public cloud) → log yönetimi, analitik, ölçekleme
-* API Gateway ve yük dengeleme alt yapısı
-* Güvenlik duvarı, IAM rolleri, ağ güvenliği politikaları
+## **6.1 Kullanıcı Arayüzleri**
+*   Web tabanlı, responsive (duyarlı) tasarım (Flask templates + Bootstrap/CSS).
+*   Yönetici paneli ve Kullanıcı dashboard'u ayrılmış görünümler.
 
-Bu yaklaşım hem yüksek güvenlik hem de esneklik sağlar.
+## **6.2 Donanım Arayüzleri**
+*   Sistem, standart x86-64 mimarili sunucularda veya geliştirici dizüstü bilgisayarlarında çalışacak şekilde tasarlanmıştır.
+
+## **6.3 İletişim Arayüzleri**
+*   HTTP/1.1 veya HTTP/2 üzerinden RESTful iletişim.
+*   JSON veri formatı.
 
 ---

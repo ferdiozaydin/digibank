@@ -1,138 +1,131 @@
-# 9. Konferans/Jurnal Raporu (Task 2.B)
+# Modernizing Legacy Banking Systems: The DigiBank Integrated Smart City Architecture
 
 ---
 
-**Title — DigiBank Integrated Smart City Automation System: A Hybrid-Cloud Secure Architecture**
+**Title — DigiBank: From Legacy Desktop Application to a Service-Oriented Smart City Fintech Platform**
 
-**Author — [Your Name], [Institution]**
+**Author — Ferdi Özaydın, Beykent Üniversitesi**
 
 ---
 
-## **Abstract—**
+## **Abstract**
 
-This paper presents a modular, scalable, and secure Smart City Automation System integrated with the DigiBank digital banking platform. The system enables residents to access city services, make fiat and cryptocurrency payments, receive real-time notifications, and interact with city infrastructure through a hybrid-cloud architecture. DigiBank incorporates quantum-resistant cryptography, multi-factor authentication, and modular design patterns to ensure secure and extensible operation. The proposed architecture supports automated routines, IoT-based event handling, and seamless integration with external financial and public service entities. This study documents the system requirements, overall architecture, operational workflows, and design considerations aligned with IEEE Software Requirements Specification (SRS) standards.
+Legacy banking software often struggles to meet modern demands for scalability, security, and interoperability. This paper presents the architectural evolution of **DigiBank**, transforming it from a standalone desktop executable (`digibank.exe`) into a robust, service-oriented web platform. The modernized system leverages a **Java 17 backend** for core transaction logic and a **Python Flask frontend** for user interaction, orchestrated via **Docker** containers. The architecture integrates financial services with **Smart City** automation, enabling residents to manage utility payments, home automation, and crypto-asset transactions within a unified interface. Key software engineering principles, including **Adapter**, **Command**, and **Observer** design patterns, are implemented to ensure modularity and extensibility. This study documents the migration strategy, system requirements (SRS), and the resulting hybrid-cloud ready architecture.
 
 ---
 
 ## **I. INTRODUCTION**
 
-Smart City ecosystems enhance urban living through interconnected digital services, automated infrastructure, sensor networks, and real-time communication. As these systems evolve, secure and reliable financial transactions become core components of digital urban services. This work presents DigiBank, a digital banking system integrated into a comprehensive Smart City Automation platform. DigiBank handles both fiat and cryptocurrency transactions, enabling flexible payments for city services such as transportation, parking, utilities, and public safety operations.
+The rapid digitization of urban environments requires financial systems that are not only secure but also deeply integrated with city infrastructure. Traditional banking applications, often developed as monolithic desktop software, lack the flexibility to interact with IoT networks, blockchain ledgers, and web-based utility services.
 
-The system incorporates strong authentication mechanisms, secure communication channels, an extensible API layer, and hybrid-cloud deployment to balance security and scalability. This paper outlines the software requirements, system architecture, design principles, and secure operational workflows necessary for implementing DigiBank within an intelligent city framework.
+This work focuses on the modernization of **DigiBank**, originally a reference desktop application (`digibank.exe`) capable of basic local account management. The goal was to re-engineer this legacy tool into a distributed, web-accessible API and Dashboard that serves as a central hub for a "Smart Resident."
 
----
-
-## **II. SYSTEM OVERVIEW**
-
-The DigiBank–Smart City integrated system consists of multiple high-level components responsible for city governance, financial operations, and IoT-driven automation. Key stakeholders include residents, system administrators, city infrastructure operators, public safety authorities, and external financial institutions.
-
-Residents interact with the system using a mobile or web interface to manage home devices, access city services, and complete payments. The CityController oversees traffic signals, lighting, sensors, and automated routines. The DigiBank subsystem processes financial operations, validates payments, interacts with blockchain networks when needed, and provides notifications.
-
-The system leverages hybrid-cloud infrastructure, where critical data and authentication modules remain on-premises, while logs, analytics, IoT processing, and scaling workloads operate in the public cloud.
+The contributions of this paper are:
+1.  **Legacy Migration:** A case study on decoupling a desktop monolith into a Client-Server architecture.
+2.  **Pattern-Driven Design:** Implementation of standard GoF patterns (Adapter for payments, Observer for notifications) to solve business problems.
+3.  **Smart City Integration:** Extending banking logic to cover government bill payments and home automation.
 
 ---
 
-## **III. SYSTEM DESCRIPTION**
+## **II. LEGACY SYSTEM OVERVIEW**
 
-### **A. User Types**
+The reference system, `digibank.exe`, represents a classic implementation of early 2000s banking software.
+*   **Architecture:** Monolithic Desktop Application.
+*   **Data Storage:** Local file system or embedded database.
+*   **Limitations:** Single-user access, lack of remote connectivity, inability to scale, and absence of modern security standards (MFA/TOTP).
 
-1. **Residents** – Access city services, manage home devices, perform payments, and receive alerts.
-2. **CityController Operators** – Manage public infrastructure and automated routines.
-3. **Public Safety Authorities** – Receive emergency alerts and event notifications.
-4. **Public Utility Services** – Respond to maintenance alerts generated by city sensors.
-5. **System Administrators** – Configure roles, manage security, monitor performance.
-
-### **B. System Features**
-
-- Secure authentication using MFA and role-based access control.
-- Viewing and purchasing city services through a unified interface.
-- Fiat and cryptocurrency payment processing.
-- Automated execution of city routines (traffic control, lighting schedules).
-- Real-time event handling triggered by IoT sensors.
-- Predictive analytics for traffic, safety, and energy optimization.
-- Hybrid-cloud operation for resilience and scalability.
+While `digibank.exe` provided a functional baseline for account CRUD (Create, Read, Update, Delete) operations, it was unsuitable for a multi-user, connected Smart City environment.
 
 ---
 
-## **IV. SOFTWARE REQUIREMENTS (IEEE SRS)**
+## **III. PROPOSED SYSTEM ARCHITECTURE**
+
+The modernized DigiBank system adopts a **Service-Oriented Architecture (SOA)**, containerized using **Docker** to ensure consistency across development and production environments.
+
+### **A. Component Diagram**
+
+The system allows separation of concerns through the following micro-components:
+
+1.  **Backend Core (Java 17):**
+    *   Acts as the central REST API.
+    *   Handles authentication (`SHA3-512` hashing + `TOTP`), transaction processing, and database persistence.
+    *   Implements the "Hexagonal" or Layered architecture (Controllers, Services, Repositories).
+2.  **Frontend GUI (Python Flask):**
+    *   A server-side rendered web application serving as the UI.
+    *   Consumes the Java API via HTTP requests.
+    *   Handles session management and connects to SMTP services for reporting.
+3.  **Database (PostgreSQL):**
+    *   Relational persistence for Users and Transactions.
+    *   Managed via Docker Compose.
+4.  **Mail Server (Mailpit):**
+    *   A local SMTP server for testing email notifications without external dependencies.
+
+### **B. Design Patterns in Practice**
+
+To ensure code maintainability, several design patterns were pivotal in the rewrite:
+
+*   **Adapter Pattern:** Used in the Payment module to unify interfaces for **Fiat**, **Bitcoin**, and **Ethereum** payments. The system treats all currency types polymorphically.
+*   **Command Pattern:** Encapsulates banking operations (Deposit, Withdraw, Transfer) as objects, allowing for audit logging and potential rollback capabilities.
+*   **Observer Pattern:** The `NotificationService` observes transaction events. When a high-value transaction occurs, it automatically triggers email alerts or system logs.
+*   **Singleton Pattern:** Ensures a single instance of database connections and configuration managers.
+
+---
+
+## **IV. FUNCTIONAL CAPABILITIES**
+
+The system is designed to meet specific Functional Requirements (FR) derived from modern banking standards.
+
+### **A. Core Banking (FR-01, FR-05, FR-08)**
+*   **Secure Login:** Users authenticate with username, password, and a Time-based One-Time Password (TOTP).
+*   **Transactions:** Supports transfers between accounts and payments to external entities.
+*   **Dashboard:** Real-time view of assets and recent activity.
+
+### **B. Smart City Integration (FR-04, FR-11)**
+*   **Smart Government:** Residents can view and pay simulated city bills (water, electricity, tax) directly from their banking dashboard.
+*   **Home Automation:** The API includes endpoints to control IoT devices (e.g., HVAC thermostat, smart locks), linking financial status with living conditions.
+
+### **C. Administration (FR-07, FR-09, FR-10)**
+*   **User Management:** Admins can CRUD users and assign roles.
+*   **Analytics:** A dedicated metrics endpoint provides system health snapshots and traffic forecasting.
+*   **Reporting:** Capability to export transaction logs to text/CSV format for auditing.
+
+---
+
+## **V. SOFTWARE REQUIREMENTS SPECIFICATION (IEEE SRS)**
 
 ### **A. Functional Requirements**
-
-**FR-01.** The system shall support fiat and cryptocurrency payment processing.
-**FR-02.** The system shall provide secure user authentication with MFA.
-**FR-03.** Users shall be able to view and purchase city services.
-**FR-04.** The system shall maintain transaction logs for all financial operations.
-**FR-05.** The CityController shall execute automated infrastructure routines.
-**FR-06.** The system shall process IoT sensor events and notify relevant authorities.
+*   **FR-01:** System shall validate users using multi-factor authentication.
+*   **FR-02:** System shall support role-based access control (Admin vs. Resident).
+*   **FR-03:** Middleware shall authorize API requests via Bearer Tokens.
+*   **FR-04:** The Payment Engine shall support pluggable strategies for Fiat and Crypto.
+*   **FR-05:** System shall generate detailed transaction logs accessible via API.
 
 ### **B. Non-Functional Requirements**
-
-**NFR-01.** All communication must be end-to-end encrypted.
-**NFR-02.** The system shall operate on hybrid-cloud infrastructure.
-**NFR-03.** The system shall support a minimum of 10,000 concurrent users.
-**NFR-04.** The architecture shall follow modular design principles and use design patterns.
-
-### **C. Security Requirements**
-
-**SEC-01.** Quantum-resistant cryptographic schemes shall be supported.
-**SEC-02.** The system shall detect suspicious transactions and apply automated countermeasures.
-
-### **D. External Integration Requirements**
-
-**EXT-01.** The system shall integrate with fiat banking APIs and cryptocurrency networks.
-**EXT-02.** The system shall notify public safety and utility services in emergency cases.
+*   **NFR-01 (Security):** Passwords must be salted and hashed (SHA3-512).
+*   **NFR-02 (Scalability):** The backend must be stateless to allow horizontal scaling behind a load balancer.
+*   **NFR-03 (Deployment):** The entire stack must be deployable via a single orchestration command (`docker compose up`).
+*   **NFR-04 (Interoperability):** The API must return standard JSON responses.
 
 ---
 
-## **V. SYSTEM ARCHITECTURE**
+## **VI. IMPLEMENTATION & RESULTS**
 
-The system architecture follows a layered, modular, and pattern-driven approach suitable for distributed hybrid-cloud deployments. Major architectural layers include:
+The implementation proved that a legacy concept (`digibank.exe`) could be successfully ported to a web stack without losing business logic integrity. The **Java** backend provides type safety and performance, while **Flask** offers rapid UI development.
 
-### **A. Application Layer**
-
-Provides user-facing components:
-
-- Resident mobile and web applications
-- Administrative dashboards
-- CityController operation panel
-
-### **B. Service Layer**
-
-Contains business logic and core operations:
-
-- Authentication/MFA Service
-- DigiBank Payment Engine
-- Notification Service (Observer Pattern)
-- CityController Automation Logic (Command + Template Method Patterns)
-
-### **C. Data & Integration Layer**
-
-Handles persistent storage and external connections:
-
-- Central relational DB for accounts and transactions
-- IoT sensor data repository
-- Cloud-based object storage for logs and analytics
-- Bank API / Crypto Gateway interfaces
-
-### **D. Hybrid-Cloud Infrastructure**
-
-The deployment model uses:
-
-- On-premises security-critical components
-- Public cloud analytics engines and log storage
-- API gateway, load balancing, and IAM policy enforcement
-- Scalable microservices for high availability
-
-This architecture ensures reliability, security, and extensibility across city-wide operations.
+**Key Implementation Highlights:**
+*   **Directory Watching:** A background service in Java monitors the file system for external transaction files, automatically ingesting them—bridging legacy file-based exchange with modern APIs.
+*   **Fault Tolerance:** The repository layer includes fallback mechanisms to In-Memory storage if the PostgreSQL connection fails, ensuring high availability during demos.
 
 ---
 
-## **VI. CONCLUSION**
+## **VII. CONCLUSION**
 
-This paper presents a hybrid-cloud, secure, and extensible Smart City Automation system integrated with the DigiBank digital banking framework. The architecture supports modular design, strong authentication, quantum-resistant encryption, and seamless interoperability with both traditional and blockchain-based financial networks. Future work will explore real-time AI-driven anomaly detection and autonomous city service optimization.
+DigiBank demonstrates a practical roadmap for modernizing legacy financial applications. By adopting a containerized, pattern-driven architecture, the system achieves the flexibility required for Smart City integrations while maintaining the rigorous security standards of the financial sector. Future work includes replacing the simulated blockchain adapters with real-world distributed ledger integrations and enhancing the AI-driven forecasting module.
 
 ---
 
 ## **REFERENCES**
 
-_(Placeholder — Öğrencinin gerçek kaynaklara göre doldurması gerekir.)_
+1.  Gamma, E., Helm, R., Johnson, R., & Vlissides, J. (1994). *Design Patterns: Elements of Reusable Object-Oriented Software*. Addison-Wesley.
+2.  IEEE Standard 830-1998. *IEEE Recommended Practice for Software Requirements Specifications*.
+3.  Richardson, C. (2018). *Microservices Patterns*. Manning Publications.
