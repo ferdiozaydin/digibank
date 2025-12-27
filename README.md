@@ -6,6 +6,21 @@ DigiBank, bankacılık işlemlerini, ödeme entegrasyonlarını ve akıllı şeh
 
 ---
 
+## Referans Proje - Bankacılık Uygulaması 🏛️
+
+Bu projenin bankacılık uygulaması, kök dizinde bulunan `digibank.exe` uygulamasından esinlenilerek ve referans alınarak geliştirilmiştir. Orijinal uygulama, temel bankacılık veri yönetimini (ekleme, silme, güncelleme, listeleme) sağlayan özgün bir masaüstü uygulamasıdır. Yeni web tabanlı uyarlamada, bu temel işlevler modern bir mikroservis mimarisine ve web arayüzüne taşınmıştır.
+
+Referans uygulamanın ekran görüntülerinden bazıları:
+
+<p align="center">
+  <img src="screenshots/digibank/digibank_main.png" alt="Referans Proje Ana Ekran" width="300" />
+  &nbsp;&nbsp;
+  <img src="screenshots/digibank/digibank_liste.png" alt="Referans Proje Liste Ekranı" width="300" />
+</p>
+
+
+---
+
 ## Gereksinimler ✅
 
 - Docker (Desktop veya Engine) yüklü olmalı
@@ -50,10 +65,17 @@ docker compose logs -f
 
 ---
 
-## Erişim ve hizmetler 🌐
+## Erişim ve Hizmetler 🌐
 
-- Web GUI (Flask) varsayılan olarak `http://localhost:5000` adresinde çalışır (gui klasöründeki Dockerfile ve `app.py` tarafından kontrol edilir).
-- API ve diğer servisler `docker-compose.yml` içindeki port ayarlarına göre erişilebilir.
+Docker Compose ile ayağa kalkan servislerin listesi ve erişim bilgileri aşağıdadır:
+
+| Servis | URL / Port | Açıklama |
+|---|---|---|
+| **Frontend GUI** | [http://localhost:8000](http://localhost:8000) | Kullanıcı yönetimi ve özelliklerin test edildiği Flask tabanlı web arayüzü. |
+| **Backend Java** | [http://localhost:8080](http://localhost:8080) | Ana Java uygulaması. API isteklerini karşılar ve iş mantığını yürütür. |
+| **Mailpit** | [http://localhost:8025](http://localhost:8025) | Geliştirme ortamı için e-posta sunucusu. Gönderilen tüm e-postaları buradan görüntüleyebilirsiniz. |
+| **PostgreSQL** | `localhost:5432` | Veritabanı sunucusu. `digibank` kullanıcısı ve şifresi ile erişilebilir. |
+
 
 ---
 
