@@ -94,20 +94,3 @@ Aşağıda proje arayüzünden bazı görüntüler bulunmaktadır.
 <p align="center">
   <img src="screenshots/banking-send-money.png" alt="Kart ile gönderme" width="320" />
 </p>
-
----
-
-## Faydalı ipuçları / Sorun giderme 💡
-
-- Eğer port çakışması varsa, ilgili portu kullanan başka servisleri durdurun veya `docker-compose.yml` içinden port atamasını değiştirin.
-- Docker kaynak limitleri (özellikle macOS Docker Desktop) performansı etkileyebilir; gerekiyorsa ayarları güncelleyin.
-- Daha fazla belge için `docs/` klasörünü inceleyin.
-
----
-
-## Geliştirme ve katkı 🛠️
-
-- Geliştirme sırasında konteynerleri yeniden oluşturmak için `--build` parametresini kullanın.
-- Yeni özellik eklemeleri veya hata düzeltmeleri için lütfen proje dokümantasyonuna göz atın ve commit mesajlarını açıklayıcı yazın.
-
----
