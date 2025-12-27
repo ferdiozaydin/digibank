@@ -1,4 +1,4 @@
-# 8. Araştırma Özeti
+# Araştırma Özeti
 
 Bu repo, **Java backend + Python/Flask GUI** birleşimi üzerinden bir “smart city + dijital bankacılık” prototipini OOP tasarım kalıplarıyla ilişkilendirerek aşağıdaki gözlemleri sunar:
 

@@ -1,4 +1,4 @@
-# 9. Conference/Journal Report (Task 2.B)
+# Conference/Journal Report
 
 **Title:** DigiBank Integrated Smart-City Automation: A Java + Flask Prototype with MFA, Hybrid Payments, and Operational Tooling
 
