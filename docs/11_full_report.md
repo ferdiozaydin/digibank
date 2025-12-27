@@ -1,8 +1,8 @@
-# DigiBank & Smart City Entegrasyonu – Kapsamlı Proje Raporu (Repo ile uyumlu)
+# DigiBank & Smart City Entegrasyonu – Kapsamlı Proje Raporu
 
-**Öğrenci:** Ferdi Özaydın / 2420003042  
-**Ders:** Nesne Tabanlı Programlama  
-**Tarih:** 25.12.2025
+**Öğrenci:** Ferdi Özaydın / 2420003042
+**Ders:** Nesne Tabanlı Programlama
+**Tarih:** 27.12.2025
 
 ## 1. Yönetici Özeti
 
