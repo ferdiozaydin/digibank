@@ -1,4 +1,4 @@
-# 1. Gereksinim Analizi (Uygulama ile birebir uyumlu)
+# 1. Gereksinim Analizi
 
 Bu doküman, repodaki mevcut prototipin **gerçekte sunduğu** özellikleri ve sınırlarını tanımlar. Amaç; gereksinimlerin, kod (Java backend + Flask GUI) ve dağıtım (Docker Compose) ile tutarlı olmasıdır.
 

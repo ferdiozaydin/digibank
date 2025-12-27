@@ -1,4 +1,4 @@
-## DigiBank – Çalıştırma ve Demo Adımları (Repo ile uyumlu)
+## DigiBank – Çalıştırma ve Demo Adımları
 
 Bu doküman, repodaki mevcut implementasyona göre sistemi ayağa kaldırma ve ana senaryoları demo etme adımlarını özetler.
 
