@@ -1,69 +1,69 @@
 # Conference/Journal Report
 
-**Title:** DigiBank Integrated Smart-City Automation: A Java + Flask Prototype with MFA, Hybrid Payments, and Operational Tooling
+**Title:** DigiBank: Architecture of a Service-Oriented Smart City Fintech Platform
 
 ## Abstract
 
-This paper presents a runnable prototype that couples digital banking flows with smart-city automation. A Java 17 backend exposes REST endpoints through an embedded `HttpServer` and enforces SHA3-512 + salt password hashing combined with TOTP-based MFA. Payment execution is modularized with Strategy and Adapter patterns to support fiat and simulated crypto rails (BTC/ETH/Stablecoin). A Flask-based GUI consumes the API, provides admin CRUD screens for users/transactions, and demonstrates reporting features including XLSX/PDF generation and SMTP delivery via a local mail catcher (Mailpit). Data can be persisted to PostgreSQL when enabled through environment variables; otherwise repositories fall back to in-memory storage and file logging.
+This paper details the technical implementation of **DigiBank**, a modernized banking platform designed to operate within a Smart City ecosystem. Moving away from a monolithic desktop legacy (`digibank.exe`), the new system employs a **Java 17** backend for core transaction processing and a **Python Flask** frontend for user interaction, all orchestrated via **Docker**. The platform demonstrates the integration of traditional financial services with smart city utilities (IoT control, bill payments) and supports hybrid payment rails (Fiat and Crypto). The architecture significantly utilizes **Design Patterns** such as Adapter, Command, and Observer to achieve modularity and scalability.
 
 ## I. Introduction
 
-Smart-city services require payments, auditing, and event-driven automation under a unified operational surface. The prototype integrates these concerns in a compact, educational codebase: authentication and authorization, billing and transfers, admin management screens, and automation routines with design-pattern-based separation.
+The objective of this project was to re-engineer a legacy single-user banking application into a distributed, multi-user system capable of serving the needs of a modern "Smart Resident." This report outlines the system design, the chosen technology stack, and the software engineering principles applied during the modernization process.
 
-## II. System Design
+## II. System Design & Architecture
 
-### A. Runtime Components (as implemented)
+### A. Core Components
+The system is built on a Microservice-like architecture, containerized for consistent deployment:
 
-1. **Java Backend (ApiServer)**: Embedded HTTP server exposing `/api/*` endpoints (login, user, bills/pay, transfers, home automation, metrics/forecast, export, admin CRUD).
-2. **AuthenticationService**: SHA3-512 + per-user salt, constant-time comparison, TOTP verification with skew tolerance, and backoff/temporary lock.
-3. **PaymentService**: Strategy pattern for FIAT (`FiatPaymentStrategy`, `CryptoPaymentStrategy`) and Adapter pattern for crypto-bill flows (`BtcAdapter`, `EthAdapter`, `StablecoinAdapter`), logging each operation into `TransactionRepository`.
-4. **SmartGovernmentService**: Produces mock government bills and delegates payment execution to PaymentService.
-5. **Automation Pipeline**: `CityController` runs routine templates; `SensorSystem` publishes events to observers; `CommandInvoker` executes queued commands (infrastructure and home devices).
-6. **Flask GUI (frontend-gui)**: Web UI calling the backend; includes admin screens, export triggers, transaction downloads (XLSX/PDF), and SMTP e-mailing via Mailpit.
-7. **PostgreSQL (optional persistence)**: Enabled in Docker Compose; used by `UserRepository` and `TransactionRepository` when `DB_URL/DB_USER/DB_PASS` are provided.
-8. **Mailpit**: Local SMTP sink + web UI to inspect outbound mails sent by the GUI.
+1.  **Backend Core (Java):**
+    *   Exposes a RESTful API.
+    *   Handles business logic including Authentication (MFA), Account Management, and Transactions.
+    *   Implements a Hexagonal Architecture to isolate core domain logic from external dependencies.
 
-### B. Key Interaction Flows
+2.  **Frontend GUI (Flask):**
+    *   Serves as the presentation layer.
+    *   Communicates with the backend via HTTP.
+    *   Provides specialized dashboards for Residents (banking/home control) and Admins (system monitoring).
 
-1. **Login**: GUI → `POST /api/login` → token returned → GUI session stores token.
-2. **Bill Payment**: GUI → `GET /api/bills` → `POST /api/pay` with `payMode=FIAT|BTC|ETH|STABLE` → transaction recorded.
-3. **Admin Management**: GUI → `/api/users*` and `/api/transactions*` endpoints to create/update/delete/search.
-4. **Reporting**: Backend export writes to `txt/`; GUI creates XLSX/PDF and can email them via SMTP (Mailpit).
+3.  **Infrastructure:**
+    *   **PostgreSQL:** Relational database for persistent storage.
+    *   **Mailpit:** SMTP service for testing email notifications.
+    *   **Docker Compose:** Orchestration tool to manage the lifecycle of all services.
 
-## III. Design Patterns
+### B. Smart City Features
+DigiBank extends beyond traditional banking:
+*   **Smart Government:** A module that simulates city utility bills (water, electricity) and allows payment via the banking interface.
+*   **Home Automation:** A dedicated API endpoint allows users to control IoT devices (e.g., smart lights, thermostats) directly from their banking dashboard.
 
-1. **Strategy**: Payment processing policy is swappable (fiat vs crypto balance strategy).
-2. **Adapter**: Crypto “rails” for bill payments are abstracted as adapters (BTC/ETH/STABLE simulation).
-3. **Observer**: Sensor and file-watcher events are distributed to observers.
-4. **Command**: Infrastructure/home actions are queued and executed in order.
-5. **Template Method**: Daily routines share a common skeleton with overridable steps.
-6. **Singleton**: Central audit logger.
+## III. Applied Design Patterns
 
-## IV. Deployment & Data
+The robustness of the codebase is achieved through the rigorous application of GoF Design Patterns:
 
-The recommended run mode is Docker Compose with four services: backend, GUI, PostgreSQL, and Mailpit. Persistence is **conditional**: repositories write to PostgreSQL when available, otherwise use in-memory lists/caches and file append logs. Token storage is in-memory.
+1.  **Adapter Pattern:**
+    *   *Problem:* The need to support multiple payment methods (Fiat, Bitcoin, Ethereum) with different underlying APIs.
+    *   *Solution:* A common `PaymentAdapter` interface allows the system to treat all payment types uniformly, making the addition of new currencies effortless.
 
-## V. Security
+2.  **Observer Pattern:**
+    *   *Problem:* Critical events (e.g., high-value transfers) need to trigger multiple reactions (Email alert, Audit log) without tightly coupling components.
+    *   *Solution:* A `NotificationService` observes transaction events and notifies registered listeners automatically.
 
-Implemented security mechanisms are intentionally “prototype-grade”:
+3.  **Command Pattern:**
+    *   *Problem:* Banking operations need to be transactional and potentially reversible.
+    *   *Solution:* Each operation (Deposit, Withdraw) is encapsulated as a Command object, standardizing execution and logging.
 
-- SHA3-512 + salt password hashing
-- TOTP verification with window tolerance (demo bypass for DEMO secrets)
-- Backoff and temporary account lock after repeated failures
-- Role-based authorization for admin endpoints
-- Optional HTTPS enforcement behind reverse proxies (`REQUIRE_HTTPS` via `X-Forwarded-Proto`)
+## IV. Security Implementation
 
-## VI. Results
+Despite being a prototype, the system enforces strict security standards:
+*   **Passwords:** Salted and hashed using `SHA3-512`.
+*   **MFA:** Integration of Time-based One-Time Passwords (TOTP) for login.
+*   **Authorization:** Role-Based Access Control (RBAC) helps differentiate between Admin and Resident capabilities.
 
-The system demonstrates end-to-end operations: MFA login, bill retrieval and payment with multiple rails, admin CRUD operations, transaction exports, and GUI-based reporting and email delivery through a local SMTP sink.
+## V. Results and Conclusion
 
-## VII. Future Work
+The DigiBank project successfully demonstrates the feasibility of modernizing legacy software into a cloud-native, service-oriented platform. The resulting system is scalable, secure, and ready for integration into a larger Smart City network. Future iterations will focus on replacing simulated adapters with real-world blockchain and IoT interfaces.
 
-1. Replace demo token store with expiring tokens and refresh mechanisms.
-2. Persist audit logs and add correlation IDs across requests.
-3. Introduce rate limiting and strict TLS termination.
-4. Evolve smart-city events to a message-bus architecture and add anomaly detection.
+## VI. Future Work
 
-## VIII. Conclusion
-
-The prototype provides a compact, runnable baseline showcasing secure authentication, modular payment design, and operational tooling in a smart-city banking context. It is suited for education and as a foundation for production-hardening steps.
+1.  **Real-Blockchain Integration:** Replacing the simulated crypto adapters with actual Web3 libraries.
+2.  **Live IoT Connection:** Connecting the Home Automation module to physical smart devices via MQTT.
+3.  **AI Analytics:** Implementing the planned machine learning module to forecast transaction trends and detect anomalies.

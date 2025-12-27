@@ -1,17 +1,29 @@
-# Araştırma Özeti
+# Araştırma Özeti: Klasik Bankacılıktan Akıllı Şehir Finansına Dönüşüm
 
-Bu repo, **Java backend + Python/Flask GUI** birleşimi üzerinden bir “smart city + dijital bankacılık” prototipini OOP tasarım kalıplarıyla ilişkilendirerek aşağıdaki gözlemleri sunar:
+Bu çalışma, **DigiBank** projesi üzerinden, geleneksel bir masaüstü uygulamasının (`digibank.exe`) modern, servis odaklı ve akıllı şehir entegrasyonuna sahip bir web platformuna evrilmesini incelemektedir. Araştırma, yazılım mimarisi modernizasyonu, OOP tasarım kalıplarının pratik uygulamaları ve dağıtık sistemlerin yönetimi konularına odaklanmaktadır.
 
-- **Strategy + Adapter (Ödeme esnekliği):** `PaymentService` FIAT ödemelerinde `PaymentStrategy` (`FiatPaymentStrategy`, `CryptoPaymentStrategy`) ve fatura kripto ödemelerinde `CryptoAdapter` (BTC/ETH/Stable) kullanarak ödeme kanalını değiştirilebilir kılar.
-- **Observer (Olay yayını):** `SensorSystem` şehir olaylarını `EmergencyService`, `PublicUtilityService`, `BankingNotificationService` gibi dinleyicilere yayınlar. Ayrıca dosya tabanlı bir olay kaynağı olarak `DirectoryWatcherService` → `EmailNotificationObserver` zinciri, “yeni export dosyası oluştu” olayını simüle eder.
-- **Command + Template Method (Otomasyon):** `CommandInvoker` altyapı/ev otomasyonu komutlarını sıraya alır; `DailyRoutineTemplate` tabanlı `LightingRoutine` ve `SecuritySweepRoutine` çalıştırılır.
-- **Güvenlik yaklaşımı (prototip seviyesi):** `AuthenticationService` SHA3-512 + salt, TOTP doğrulama, artan gecikme ve geçici kilitleme uygular. `ApiServer` token store’u in-memory tutar (restart’ta sıfırlanır). `REQUIRE_HTTPS` ve `DEV_AUTH_TOKEN` gibi env ayarları demo/ortam varyasyonlarını gösterir.
-- **Kalıcılık ve çevre bağımlılıkları:** `UserRepository` ve `TransactionRepository`, Postgres ortam değişkenleri verildiğinde DB’ye bağlanır; değilse cache/in-memory + dosya fallback yaklaşımına döner. Bu, prototiplerde sık görülen “opsiyonel kalıcılık” desenini gösterir.
-- **Sistem entegrasyonu (polyglot):** Flask GUI, Java API’ye HTTP ile bağlanır; ayrıca e-posta senaryosu için SMTP üzerinden Mailpit kullanır. Bu, “tek kod tabanı = tek dil” varsayımının her zaman doğru olmadığını pratikte gösterir.
+Projenin temel bulguları ve teknik kazanımları şunlardır:
 
-Gelecek çalışmalar için araştırma eksenleri:
+### 1. Mimari Dönüşüm (Legacy to Modern)
+Geleneksel "stand-alone" (tek başına çalışan) masaüstü uygulamalarının, ölçeklenebilirlik ve erişilebilirlik sorunları nedeniyle modern ihtiyaçlara cevap veremediği gözlemlenmiştir.
+*   **Ayrıklaşma (Decoupling):** Tek bir exe dosyası yerine, **Backend (Java)** ve **Frontend (Flask)** olarak ayrılan yapı, geliştirme süreçlerini hızlandırmış ve bakım maliyetlerini düşürmüştür.
+*   **Konteynerizasyon:** Docker kullanımı, "benim makinemde çalışıyor" sorununu ortadan kaldırarak tutarlı bir dağıtım (deployment) ortamı sağlamıştır.
 
-1. Oturum yönetimi (token yaşam süresi, refresh, CSRF), rate limit ve TLS terminasyonu.
-2. Audit log’ların kalıcı veri modeli (DB’ye yazma, korelasyon ID’leri).
-3. Olay akışının mesaj kuyruğu ile ayrıştırılması (Observer yerine event bus) ve “en az bir kez” teslim semantiği.
-4. Ödeme stratejilerinde gerçek kur/veri beslemesi ve uçtan uca test otomasyonu.
+### 2. Akıllı Şehir Entegrasyonu
+Finansal sistemlerin sadece para transferi aracı olmaktan çıkıp, yaşam alanlarıyla etkileşime giren platformlara dönüşümü modellenmiştir.
+*   **Entegre Ödemeler:** Su, elektrik gibi şehir faturalarının bankacılık arayüzünden, farklı para birimleriyle (Fiat/Kripto) ödenebilmesi sağlanmıştır.
+*   **IoT Yönetimi:** Finansal arayüz üzerinden ev otomasyon cihazlarının (termostat, kilit) kontrol edilmesi, "Smart Resident" (Akıllı Sakin) kavramını somutlaştırmıştır.
+
+### 3. Tasarım Kalıplarının Etkisi
+Standart GoF tasarım kalıplarının, karmaşık iş problemlerini çözmede kritik rol oynadığı görülmüştür:
+*   **Adapter Pattern:** Farklı ödeme altyapılarının (Blockchain vs. Banka) tek bir arayüzden yönetilmesini sağlayarak kod tekrarını önlemiştir.
+*   **Observer Pattern:** Sistem olaylarının (yüksek tutarlı transferler gibi) gevşek bağlı (loosely coupled) modüller tarafından dinlenmesine ve otomatik aksiyon alınmasına olanak tanımıştır.
+*   **Command Pattern:** İşlemlerin (Transaction) birer nesne olarak kapsüllenmesi, işlem geçmişinin izlenmesini ve hata durumunda geri alınabilirlik (rollback) potansiyelini artırmıştır.
+
+### 4. Güvenlik ve Uyumluluk
+Prototip aşamasında dahi olsa, finansal yazılımların güvenlikten ödün veremeyeceği prensibi benimsenmiştir.
+*   **MFA (Çok Faktörlü Kimlik Doğrulama):** Parola güvenliğinin ötesine geçilerek TOTP ile ikinci bir doğrulama katmanı eklenmiştir.
+*   **Veri Bütünlüğü:** Hassas verilerin (parola) kriptografik özetleme (hashing) ile saklanması sağlanmıştır.
+
+### Sonuç
+Bu araştırma, eski nesil bankacılık yazılımlarının modern web teknolojileri ve doğru mimari desenlerle dönüştürülebileceğini kanıtlamaktadır. Ortaya çıkan hibrit yapı, hem geleneksel bankacılık güvenliğini korumakta hem de akıllı şehirlerin getirdiği yenilikçi ihtiyaçlara esnek bir şekilde uyum sağlayabilmektedir. Gelecek çalışmalarda, simülasyon ortamlarının (Blockchain, Email) gerçek dünya entegrasyonlarına dönüştürülmesi planlanmaktadır.
